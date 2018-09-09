@@ -1,4 +1,4 @@
-namespace Def.Test
+namespace Ghi.Test
 {
 
 using NUnit.Framework;
@@ -9,7 +9,7 @@ public class CoreTest
 	[Test]
 	public void CreationTest()
 	{
-	    //new Def();
+	    new Def.Parser(new System.Type[] { }, null);
 	}
 }
 

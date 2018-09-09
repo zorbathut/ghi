@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28010.2016
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{502B8FC7-CB28-4CFF-BF79-5661DBB28DE4}") = "ghi", "src/ghi.csproj", "{1F6371F2-D7FB-4226-892B-2F1671CD0E6A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ghi", "src/ghi.csproj", "{1F6371F2-D7FB-4226-892B-2F1671CD0E6A}"
 EndProject
-Project("{502B8FC7-CB28-4CFF-BF79-5661DBB28DE4}") = "ghi-test", "test/ghi-test.csproj", "{D8AD8D37-2ED5-4396-B693-77A06FC46A69}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ghi-test", "test/ghi-test.csproj", "{D8AD8D37-2ED5-4396-B693-77A06FC46A69}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "def", "lib/def/src/def.csproj", "{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{D8AD8D37-2ED5-4396-B693-77A06FC46A69}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D8AD8D37-2ED5-4396-B693-77A06FC46A69}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D8AD8D37-2ED5-4396-B693-77A06FC46A69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
