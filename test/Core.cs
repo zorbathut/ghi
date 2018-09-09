@@ -9,7 +9,7 @@ public class CoreTest
 	[Test]
 	public void CreationTest()
 	{
-	    new Def();	
+	    //new Def();
 	}
 }
 
