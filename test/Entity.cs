@@ -3,20 +3,6 @@ namespace Ghi.Test
     using NUnit.Framework;
     using System.Linq;
 
-    
-    [Def.StaticReferences]
-    public static class EntityTemplateDefs
-    {
-        static EntityTemplateDefs() { Def.StaticReferences.Initialized(); }
-
-        public static EntityTemplateDef EntityModel;
-    }
-
-    public class SimpleComponent
-    {
-        public int number;
-    }
-
     [TestFixture]
     public class Entity : Base
     {
