@@ -1,6 +1,5 @@
 namespace Ghi
 {
-    using System;
     using System.Collections.Generic;
 
     public class EntityTemplateDef : Def.Def
