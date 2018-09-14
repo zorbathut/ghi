@@ -7,7 +7,7 @@ namespace Ghi.Test
     public class EnvironmentTest : Base
     {
 	    [Test]
-	    public void SingletonTest()
+	    public void Singleton()
 	    {
 	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { });
             parser.AddString(@"

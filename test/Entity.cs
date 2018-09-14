@@ -7,7 +7,7 @@ namespace Ghi.Test
     public class EntityTest : Base
     {
 	    [Test]
-	    public void CreationTest()
+	    public void Creation()
 	    {
 	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
             parser.AddString(@"
