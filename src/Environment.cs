@@ -19,6 +19,8 @@ namespace Ghi
 
         private static readonly List<Action> PhaseEndActions = new List<Action>();
 
+        private static object[] Singletons;
+
         public static IEnumerable<Entity> List
         {
             get
@@ -42,6 +44,15 @@ namespace Ghi
                 }
 
                 ComponentIndexDict[def.type] = def.index;
+            }
+
+            Singletons = new object[Def.Database<ComponentDef>.Count];
+            foreach (var def in Def.Database<ComponentDef>.List)
+            {
+                if (def.singleton)
+                {
+                    Singletons[def.index] = Activator.CreateInstance(def.type);
+                }
             }
 
             GlobalStatus = Status.Idle;
@@ -83,6 +94,11 @@ namespace Ghi
             }
         }
 
+        public static T Singleton<T>()
+        {
+            return (T)Singletons[LookupComponentIndex(typeof(T))];
+        }
+
         public static void Clear()
         {
             if (GlobalStatus == Status.Processing)
@@ -94,6 +110,8 @@ namespace Ghi
             ComponentIndexDict.Clear();
             Entities.Clear();
             PhaseEndActions.Clear();
+
+            Singletons = null;
 
             GlobalStatus = Status.Uninitialized;
         }

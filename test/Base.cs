@@ -15,6 +15,11 @@ namespace Ghi.Test
         public int number;
     }
 
+    public class StringComponent
+    {
+        public string str;
+    }
+
     [TestFixture]
     public class Base
     {

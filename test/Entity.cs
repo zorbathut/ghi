@@ -4,7 +4,7 @@ namespace Ghi.Test
     using System.Linq;
 
     [TestFixture]
-    public class Entity : Base
+    public class EntityTest : Base
     {
 	    [Test]
 	    public void CreationTest()
