@@ -99,6 +99,14 @@ namespace Ghi
             return (T)Singletons[LookupComponentIndex(typeof(T))];
         }
 
+        public static void Process(ProcessDef process)
+        {
+            foreach (var system in process.order)
+            {
+                system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, null);
+            }
+        }
+
         public static void Clear()
         {
             if (GlobalStatus == Status.Processing)
