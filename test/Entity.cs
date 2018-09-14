@@ -6,6 +6,14 @@ namespace Ghi.Test
     [TestFixture]
     public class EntityTest : Base
     {
+        [Def.StaticReferences]
+        public static class EntityTemplateDefs
+        {
+            static EntityTemplateDefs() { Def.StaticReferences.Initialized(); }
+
+            public static EntityTemplateDef EntityModel;
+        }
+
 	    [Test]
 	    public void Creation()
 	    {
