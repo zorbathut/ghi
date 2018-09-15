@@ -2,6 +2,7 @@ namespace Ghi
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     public static class Environment
     {
@@ -143,14 +144,68 @@ namespace Ghi
                         }
                     }
 
-                    try
+                    if (system.iterate.Count == 0)
                     {
-                        executeMethod.Invoke(null, activeParameters);
+                        try
+                        {
+                            executeMethod.Invoke(null, activeParameters);
+                        }
+                        catch (Exception e)
+                        {
+                            Dbg.Ex(e);
+                        }
                     }
-                    catch (Exception e)
+                    else
                     {
-                        Dbg.Ex(e);
+                        int[] requiredIndices = system.iterate.Keys.Select(comp => comp.index).OrderBy(x => x).ToArray();
+                        foreach (var entity in List)
+                        {
+                            bool valid = true;
+                            for (int k = 0; k < requiredIndices.Length; ++k)
+                            {
+                                if (entity.components[k] == null)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                            }
+
+                            if (!valid)
+                            {
+                                continue;
+                            }
+
+                            for (int i = 0; i < methodParameters.Length; ++i)
+                            {
+                                ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
+                                if (component != null && !component.singleton)
+                                {
+                                    var permission = system.iterate.TryGetValue(component);
+                                    if (permission == SystemDef.Permissions.None)
+                                    {
+                                        Dbg.Err($"{system}: Attempted to use component {component} without any permission");
+                                    }
+
+                                    if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
+                                    {
+                                        Dbg.Wrn($"{system}: Using read-only component {component} without \"_ro\" suffix");
+                                    }
+
+                                    activeParameters[i] = entity.components[component.index];
+                                }
+                            }
+
+                            try
+                            {
+                                executeMethod.Invoke(null, activeParameters);
+                            }
+                            catch (Exception e)
+                            {
+                                Dbg.Ex(e);
+                            }
+                        }
                     }
+                    
                 }
                 catch (Exception e)
                 {

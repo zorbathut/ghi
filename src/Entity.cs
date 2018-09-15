@@ -4,7 +4,7 @@ namespace Ghi
 
     public class Entity
     {
-        private readonly object[] components;
+        internal readonly object[] components;
 
         public Entity(EntityTemplateDef template)
         {
