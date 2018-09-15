@@ -90,11 +90,11 @@ namespace Ghi
 
             if (GlobalStatus == Status.Idle)
             {
-                PhaseEndActions.Add(() => Remove(entity));
+                Entities.Remove(entity);
             }
             else
             {
-                Entities.Remove(entity);
+                PhaseEndActions.Add(() => Remove(entity));
             }
         }
 
@@ -126,6 +126,11 @@ namespace Ghi
                     var activeParameters = new object[methodParameters.Length];
                     for (int i = 0; i < methodParameters.Length; ++i)
                     {
+                        if (methodParameters[i].ParameterType == typeof(Ghi.Entity))
+                        {
+                            continue;
+                        }
+
                         ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
                         if (component != null && component.singleton)
                         {
@@ -146,6 +151,7 @@ namespace Ghi
 
                     if (system.iterate.Count == 0)
                     {
+                        // No-iteration pathway
                         try
                         {
                             executeMethod.Invoke(null, activeParameters);
@@ -157,6 +163,9 @@ namespace Ghi
                     }
                     else
                     {
+                        // Entity-iteration pathway
+
+                        // Doing this once per run is silly, it should be precalculated
                         int[] requiredIndices = system.iterate.Keys.Select(comp => comp.index).OrderBy(x => x).ToArray();
                         foreach (var entity in List)
                         {
@@ -177,6 +186,12 @@ namespace Ghi
 
                             for (int i = 0; i < methodParameters.Length; ++i)
                             {
+                                if (methodParameters[i].ParameterType == typeof(Entity))
+                                {
+                                    activeParameters[i] = entity;
+                                    continue;
+                                }
+
                                 ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
                                 if (component != null && !component.singleton)
                                 {
@@ -214,6 +229,12 @@ namespace Ghi
             }
 
             GlobalStatus = Status.Idle;
+
+            foreach (var action in PhaseEndActions)
+            {
+                action();
+            }
+            PhaseEndActions.Clear();
         }
 
         public static void Clear()
