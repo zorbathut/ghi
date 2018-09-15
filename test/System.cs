@@ -7,9 +7,9 @@ namespace Ghi.Test
     public class SystemTest : Base
     {
         [Def.StaticReferences]
-        public static class NullDefs
+        public static class SystemTestDefs
         {
-            static NullDefs() { Def.StaticReferences.Initialized(); }
+            static SystemTestDefs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
         }
@@ -23,7 +23,7 @@ namespace Ghi.Test
 	    [Test]
 	    public void Null()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(NullDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
             parser.AddString(@"
                 <Defs>
                     <SystemDef defName=""TestSystem"">
@@ -40,7 +40,7 @@ namespace Ghi.Test
             parser.Finish();
 
             NullSystem.Executions = 0;
-            Environment.Process(NullDefs.TestProcess);
+            Environment.Process(SystemTestDefs.TestProcess);
             Assert.AreEqual(1, NullSystem.Executions);
 	    }
     }
