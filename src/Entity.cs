@@ -18,7 +18,12 @@ namespace Ghi
 
         public T Component<T>()
         {
-            return (T)components[Environment.LookupComponentIndex(typeof(T))];
+            return (T)components[Environment.ComponentDefDict[typeof(T)].index];
+        }
+
+        public object Component(Type type)
+        {
+            return components[Environment.ComponentDefDict[type].index];
         }
     }
 }

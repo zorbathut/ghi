@@ -14,7 +14,7 @@ namespace Ghi
         }
         private static Status GlobalStatus = Status.Uninitialized;
 
-        private static readonly Dictionary<Type, int> ComponentIndexDict = new Dictionary<Type, int>();
+        internal static readonly Dictionary<Type, ComponentDef> ComponentDefDict = new Dictionary<Type, ComponentDef>();
         private static readonly HashSet<Entity> Entities = new HashSet<Entity>();
 
         private static readonly List<Action> PhaseEndActions = new List<Action>();
@@ -38,12 +38,12 @@ namespace Ghi
 
             foreach (var def in Def.Database<ComponentDef>.List)
             {
-                if (ComponentIndexDict.ContainsKey(def.type))
+                if (ComponentDefDict.ContainsKey(def.type))
                 {
                     Dbg.Err("Found two duplicate ComponentDef's with the same type");
                 }
 
-                ComponentIndexDict[def.type] = def.index;
+                ComponentDefDict[def.type] = def;
             }
 
             Singletons = new object[Def.Database<ComponentDef>.Count];
@@ -96,15 +96,45 @@ namespace Ghi
 
         public static T Singleton<T>()
         {
-            return (T)Singletons[LookupComponentIndex(typeof(T))];
+            return (T)Singletons[ComponentDefDict[typeof(T)].index];
+        }
+
+        public static object Singleton(Type type)
+        {
+            return Singletons[ComponentDefDict[type].index];
         }
 
         public static void Process(ProcessDef process)
         {
+            if (GlobalStatus != Status.Idle)
+            {
+                Dbg.Err($"Trying to run process while the world is in {GlobalStatus} state; should be {Status.Idle} state");
+            }
+            GlobalStatus = Status.Processing;
+
             foreach (var system in process.order)
             {
-                system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, null);
+                var executeMethod = system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var methodParameters = executeMethod.GetParameters();
+
+                var activeParameters = new object[methodParameters.Length];
+                for (int i = 0; i < methodParameters.Length; ++i)
+                {
+                    ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
+                    if (component != null && component.singleton)
+                    {
+                        // test permission
+
+                        // test for parameter suffix
+
+                        activeParameters[i] = Singletons[component.index];
+                    }
+                }
+
+                system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, activeParameters);
             }
+
+            GlobalStatus = Status.Idle;
         }
 
         public static void Clear()
@@ -115,18 +145,13 @@ namespace Ghi
                 return;
             }
 
-            ComponentIndexDict.Clear();
+            ComponentDefDict.Clear();
             Entities.Clear();
             PhaseEndActions.Clear();
 
             Singletons = null;
 
             GlobalStatus = Status.Uninitialized;
-        }
-
-        internal static int LookupComponentIndex(Type type)
-        {
-            return ComponentIndexDict[type];
         }
     }
 }
