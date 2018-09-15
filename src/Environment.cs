@@ -21,6 +21,9 @@ namespace Ghi
 
         private static object[] Singletons;
 
+        //internal static SystemDef CurrentSystem;
+        //internal static Entity CurrentEntity;
+
         public static IEnumerable<Entity> List
         {
             get
@@ -114,24 +117,45 @@ namespace Ghi
 
             foreach (var system in process.order)
             {
-                var executeMethod = system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var methodParameters = executeMethod.GetParameters();
-
-                var activeParameters = new object[methodParameters.Length];
-                for (int i = 0; i < methodParameters.Length; ++i)
+                try
                 {
-                    ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
-                    if (component != null && component.singleton)
+                    var executeMethod = system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    var methodParameters = executeMethod.GetParameters();
+
+                    var activeParameters = new object[methodParameters.Length];
+                    for (int i = 0; i < methodParameters.Length; ++i)
                     {
-                        // test permission
+                        ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
+                        if (component != null && component.singleton)
+                        {
+                            var permission = system.singleton.TryGetValue(component);
+                            if (permission == SystemDef.Permissions.None)
+                            {
+                                Dbg.Err($"{system}: Attempted to use singleton {component} without any permission");
+                            }
 
-                        // test for parameter suffix
+                            if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
+                            {
+                                Dbg.Wrn($"{system}: Using read-only singleton {component} without \"_ro\" suffix");
+                            }
 
-                        activeParameters[i] = Singletons[component.index];
+                            activeParameters[i] = Singletons[component.index];
+                        }
+                    }
+
+                    try
+                    {
+                        executeMethod.Invoke(null, activeParameters);
+                    }
+                    catch (Exception e)
+                    {
+                        Dbg.Ex(e);
                     }
                 }
-
-                system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, activeParameters);
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
             }
 
             GlobalStatus = Status.Idle;
