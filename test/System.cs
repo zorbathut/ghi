@@ -16,8 +16,8 @@ namespace Ghi.Test
 
         public static class NullSystem
         {
-            public static int executions = 0;
-            public static void Execute() { ++executions; }
+            public static int Executions = 0;
+            public static void Execute() { ++Executions; }
         }
 
 	    [Test]
@@ -39,9 +39,9 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            NullSystem.executions = 0;
+            NullSystem.Executions = 0;
             Environment.Process(NullDefs.TestProcess);
-            Assert.AreEqual(1, NullSystem.executions);
+            Assert.AreEqual(1, NullSystem.Executions);
 	    }
     }
 }
