@@ -6,7 +6,7 @@ namespace Ghi
     {
         internal readonly object[] components;
 
-        public Entity(EntityTemplateDef template)
+        public Entity(EntityDef template)
         {
             components = new object[Def.Database<ComponentDef>.Count];
 

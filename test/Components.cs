@@ -12,7 +12,7 @@ namespace Ghi.Test
             static SystemTestDefs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
-            public static EntityTemplateDef EntityModel;
+            public static EntityDef EntityModel;
         }
 
         public static class ComponentPermissionRwSystem
@@ -51,12 +51,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRwSystem</type>
@@ -99,12 +99,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRwSystem</type>
@@ -147,12 +147,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRwSystem</type>
@@ -194,12 +194,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRoSystem</type>
@@ -242,12 +242,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRoSystem</type>
@@ -290,12 +290,12 @@ namespace Ghi.Test
                         <type>StringComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>SimpleComponent</li>
                             <li>StringComponent</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>ComponentPermissionRoSystem</type>

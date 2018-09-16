@@ -12,7 +12,7 @@ namespace Ghi.Test
             static SystemTestDefs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
-            public static EntityTemplateDef EntityModel;
+            public static EntityDef EntityModel;
         }
 
         public static class IterationSystem
@@ -31,11 +31,11 @@ namespace Ghi.Test
                         <type>SimpleComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>IterationSystem</type>
@@ -82,11 +82,11 @@ namespace Ghi.Test
                         <type>SimpleComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>IterationAddSystem</type>
@@ -129,11 +129,11 @@ namespace Ghi.Test
                         <type>SimpleComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
 
                     <SystemDef defName=""TestSystem"">
                         <type>IterationRemoveSystem</type>

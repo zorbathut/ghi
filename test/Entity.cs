@@ -11,7 +11,7 @@ namespace Ghi.Test
         {
             static EntityTemplateDefs() { Def.StaticReferences.Initialized(); }
 
-            public static EntityTemplateDef EntityModel;
+            public static EntityDef EntityModel;
         }
 
 	    [Test]
@@ -24,11 +24,11 @@ namespace Ghi.Test
                         <type>SimpleComponent</type>
                     </ComponentDef>
 
-                    <EntityTemplateDef defName=""EntityModel"">
+                    <EntityDef defName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityTemplateDef>
+                    </EntityDef>
                 </Defs>
             ");
             parser.Finish();

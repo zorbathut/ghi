@@ -2,7 +2,7 @@ namespace Ghi
 {
     using System.Collections.Generic;
 
-    public class EntityTemplateDef : Def.Def
+    public class EntityDef : Def.Def
     {
         public List<ComponentDef> components;
 
