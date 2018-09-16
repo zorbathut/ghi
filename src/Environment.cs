@@ -22,8 +22,8 @@ namespace Ghi
 
         private static object[] Singletons;
 
-        //internal static SystemDef CurrentSystem;
-        //internal static Entity CurrentEntity;
+        internal static SystemDef ActiveSystem;
+        internal static Entity ActiveEntity;
 
         public static IEnumerable<Entity> List
         {
@@ -100,12 +100,54 @@ namespace Ghi
 
         public static T Singleton<T>()
         {
-            return (T)Singletons[ComponentDefDict[typeof(T)].index];
+            int index = ComponentDefDict[typeof(T)].index;
+            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
+            {
+                string err = $"Invalid attempt to access singleton {typeof(T)} in read-write mode from within system {ActiveSystem}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
+            return (T)Singletons[index];
         }
 
         public static object Singleton(Type type)
         {
-            return Singletons[ComponentDefDict[type].index];
+            int index = ComponentDefDict[type].index;
+            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
+            {
+                string err = $"Invalid attempt to access singleton {type} in read-write mode from within system {ActiveSystem}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
+            return Singletons[index];
+        }
+
+        public static T SingletonRO<T>()
+        {
+            int index = ComponentDefDict[typeof(T)].index;
+            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
+            {
+                string err = $"Invalid attempt to access singleton {typeof(T)} in read-only mode from within system {ActiveSystem}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
+            return (T)Singletons[index];
+        }
+
+        public static object SingletonRO(Type type)
+        {
+            int index = ComponentDefDict[type].index;
+            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
+            {
+                string err = $"Invalid attempt to access singleton {type} in read-only mode from within system {ActiveSystem}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
+            return Singletons[index];
         }
 
         public static void Process(ProcessDef process)
@@ -120,6 +162,8 @@ namespace Ghi
             {
                 try
                 {
+                    ActiveSystem = system;
+
                     var executeMethod = system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                     var methodParameters = executeMethod.GetParameters();
 
@@ -169,6 +213,8 @@ namespace Ghi
                         int[] requiredIndices = system.iterate.Keys.Select(comp => comp.index).OrderBy(x => x).ToArray();
                         foreach (var entity in List)
                         {
+                            ActiveEntity = entity;
+
                             bool valid = true;
                             for (int k = 0; k < requiredIndices.Length; ++k)
                             {
@@ -219,6 +265,8 @@ namespace Ghi
                                 Dbg.Ex(e);
                             }
                         }
+
+                        ActiveEntity = null;
                     }
                     
                 }
@@ -227,6 +275,10 @@ namespace Ghi
                     Dbg.Ex(e);
                 }
             }
+
+            // clean up everything, even the things that should have already been cleaned up, just in case
+            ActiveSystem = null;
+            ActiveEntity = null;
 
             GlobalStatus = Status.Idle;
 
@@ -242,7 +294,7 @@ namespace Ghi
             if (GlobalStatus == Status.Processing)
             {
                 Dbg.Err($"Attempting to clear the environment while the world is in {GlobalStatus} state; should not be {Status.Processing} state");
-                return;
+                // but we'll do it anyway
             }
 
             ComponentDefDict.Clear();
