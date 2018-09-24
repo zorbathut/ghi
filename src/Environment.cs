@@ -25,6 +25,14 @@ namespace Ghi
         internal static SystemDef ActiveSystem;
         internal static Entity ActiveEntity;
 
+        public static int Count
+        {
+            get
+            {
+                return Entities.Count;
+            }
+        }
+
         public static IEnumerable<Entity> List
         {
             get
