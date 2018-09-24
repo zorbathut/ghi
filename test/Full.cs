@@ -7,9 +7,9 @@ namespace Ghi.Test
     public class Full : Base
     {
         [Def.StaticReferences]
-        public static class FullTestDefs
+        public static class Defs
         {
-            static FullTestDefs() { Def.StaticReferences.Initialized(); }
+            static Defs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
             public static EntityDef Entity;
@@ -40,7 +40,7 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -71,17 +71,17 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            Environment.Process(FullTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -112,17 +112,17 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(FullTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -150,17 +150,17 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(FullTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -191,17 +191,17 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            Environment.Process(FullTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -232,17 +232,17 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            Environment.Process(FullTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(FullTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -270,10 +270,10 @@ namespace Ghi.Test
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(FullTestDefs.Entity));
+            Environment.Add(new Entity(Defs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(FullTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
     }

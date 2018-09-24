@@ -7,9 +7,9 @@ namespace Ghi.Test
     public class Components : Base
     {
         [Def.StaticReferences]
-        public static class SystemTestDefs
+        public static class Defs
         {
-            static SystemTestDefs() { Def.StaticReferences.Initialized(); }
+            static Defs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
             public static EntityDef EntityModel;
@@ -40,7 +40,7 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -77,18 +77,18 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRwSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, ComponentPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -125,18 +125,18 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, ComponentPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -172,18 +172,18 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, ComponentPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -220,18 +220,18 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRoSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -268,18 +268,18 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRoSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""SimpleComponent"">
@@ -315,11 +315,11 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             ComponentPermissionRoSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
 	    }
     }

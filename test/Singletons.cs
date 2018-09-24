@@ -7,9 +7,9 @@ namespace Ghi.Test
     public class Singletons : Base
     {
         [Def.StaticReferences]
-        public static class SystemTestDefs
+        public static class Defs
         {
-            static SystemTestDefs() { Def.StaticReferences.Initialized(); }
+            static Defs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
         }
@@ -23,7 +23,7 @@ namespace Ghi.Test
 	    [Test]
 	    public void Singleton()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -50,7 +50,7 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(1, SingletonSystem.Executions);
             Assert.AreEqual(15, Environment.Singleton<SimpleComponent>().number);
 	    }
@@ -58,7 +58,7 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonPermissions()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -82,7 +82,7 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(1, SingletonSystem.Executions);
             Assert.AreEqual(15, Environment.Singleton<SimpleComponent>().number);
 	    }
@@ -90,7 +90,7 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonROSuffix()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -117,7 +117,7 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonSystem.Executions = 0;
-            ExpectWarnings(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectWarnings(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(1, SingletonSystem.Executions);
             Assert.AreEqual(15, Environment.Singleton<SimpleComponent>().number);
 	    }
@@ -133,7 +133,7 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonROValid()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -160,7 +160,7 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonROSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(1, SingletonROSystem.Executions);
             Assert.AreEqual(15, Environment.Singleton<SimpleComponent>().number);
 	    }
@@ -190,7 +190,7 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -218,14 +218,14 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRwSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, SingletonPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -253,14 +253,14 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, SingletonPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -285,14 +285,14 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, SingletonPermissionRwSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -320,14 +320,14 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRoSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, SingletonPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -355,14 +355,14 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRoSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, SingletonPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Singleton"">
@@ -387,7 +387,7 @@ namespace Ghi.Test
             Environment.Startup();
 
             SingletonPermissionRoSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(SystemTestDefs.TestProcess));
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, SingletonPermissionRoSystem.Executions);
 	    }
     }

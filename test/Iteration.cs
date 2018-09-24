@@ -7,9 +7,9 @@ namespace Ghi.Test
     public class Iteration : Base
     {
         [Def.StaticReferences]
-        public static class SystemTestDefs
+        public static class Defs
         {
-            static SystemTestDefs() { Def.StaticReferences.Initialized(); }
+            static Defs() { Def.StaticReferences.Initialized(); }
 
             public static ProcessDef TestProcess;
             public static EntityDef EntityModel;
@@ -24,7 +24,7 @@ namespace Ghi.Test
 	    [Test]
 	    public void Basic()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -55,11 +55,11 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             IterationSystem.Executions = 0;
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, IterationSystem.Executions);
 
             Entity[] entities = Environment.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
@@ -69,13 +69,13 @@ namespace Ghi.Test
 
         public static class IterationAddSystem
         {
-            public static void Execute(Entity simple) { Environment.Add(new Entity(SystemTestDefs.EntityModel)); }
+            public static void Execute(Entity simple) { Environment.Add(new Entity(Defs.EntityModel)); }
         }
 
         [Test]
 	    public void Addition()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -106,11 +106,11 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(4, Environment.List.Count());
         }
 
@@ -122,7 +122,7 @@ namespace Ghi.Test
         [Test]
 	    public void Removal()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(SystemTestDefs) });
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
             parser.AddString(@"
                 <Defs>
                     <ComponentDef defName=""Component"">
@@ -153,11 +153,11 @@ namespace Ghi.Test
 
             Environment.Startup();
 
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
-            Environment.Add(new Entity(SystemTestDefs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
 
             Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(SystemTestDefs.TestProcess);
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(0, Environment.List.Count());
         }
     }
