@@ -14,8 +14,9 @@ namespace Ghi
             ReadWrite,
         }
 
-        public Dictionary<ComponentDef, Permissions> singleton = new Dictionary<ComponentDef, Permissions>();
         public Dictionary<ComponentDef, Permissions> iterate = new Dictionary<ComponentDef, Permissions>();
+        public Dictionary<ComponentDef, Permissions> full = new Dictionary<ComponentDef, Permissions>();
+        public Dictionary<ComponentDef, Permissions> singleton = new Dictionary<ComponentDef, Permissions>();
 
         // Cached values derived at startup; used to allow or disallow accesses
         internal bool[] accessibleSingletonsRO;
@@ -42,6 +43,19 @@ namespace Ghi
                 if (!kvp.Key.singleton)
                 {
                     yield return $"Non-singleton component {kvp.Key} referenced in singleton list";
+                }
+
+                if (kvp.Key.immutable && kvp.Value == Permissions.ReadWrite)
+                {
+                    yield return $"Read-write permission given for immutable component {kvp.Key}";
+                }
+            }
+
+            foreach (var kvp in full)
+            {
+                if (kvp.Key.singleton)
+                {
+                    yield return $"Singleton component {kvp.Key} referenced in full list";
                 }
 
                 if (kvp.Key.immutable && kvp.Value == Permissions.ReadWrite)
@@ -91,6 +105,22 @@ namespace Ghi
                     if (kvp.Value >= Permissions.ReadWrite)
                     {
                         accessibleSingletonsRW[kvp.Key.index] = true;
+                    }
+                }
+            }
+
+            if (full != null)
+            {
+                foreach (var kvp in full)
+                {
+                    if (kvp.Value >= Permissions.ReadOnly)
+                    {
+                        accessibleComponentsFullRO[kvp.Key.index] = true;
+                    }
+
+                    if (kvp.Value >= Permissions.ReadWrite)
+                    {
+                        accessibleComponentsFullRW[kvp.Key.index] = true;
                     }
                 }
             }
