@@ -311,6 +311,9 @@ namespace Ghi
 
             Singletons = null;
 
+            ActiveSystem = null;
+            ActiveEntity = null;
+
             GlobalStatus = Status.Uninitialized;
         }
     }
