@@ -14,6 +14,14 @@ namespace Ghi.Test
             public static EntityDef EntityModel;
         }
 
+        [Def.StaticReferences]
+        public static class EntityProcessTemplateDefs
+        {
+            static EntityProcessTemplateDefs() { Def.StaticReferences.Initialized(); }
+
+            public static ProcessDef TestProcess;
+        }
+
 	    [Test]
 	    public void Creation()
 	    {
@@ -40,5 +48,55 @@ namespace Ghi.Test
             Assert.AreEqual(1, ents.Length);
             Assert.IsTrue(ents[0].Component<SimpleComponent>() != null);
 	    }
+
+        public static class InactiveTestSystem
+        {
+            public static void Execute()
+            {
+                var entity = new Entity(EntityTemplateDefs.EntityModel);
+                Environment.Add(entity);    // We intentionally add it first; we should still be able to muck with it
+
+                entity.Component<SimpleComponent>().number = 4;
+            }
+        }
+
+        [Test]
+        public void Inactive()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs), typeof(EntityProcessTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+
+                    <SystemDef defName=""TestSystem"">
+                        <type>InactiveTestSystem</type>
+                    </SystemDef>
+
+                    <ProcessDef defName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            Environment.Process(EntityProcessTemplateDefs.TestProcess);
+
+            var ents = Environment.List.ToArray();
+
+            Assert.AreEqual(1, ents.Length);
+            Assert.AreEqual(4, ents[0].Component<SimpleComponent>().number);
+        }
     }
 }

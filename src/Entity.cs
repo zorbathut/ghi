@@ -5,6 +5,7 @@ namespace Ghi
     public class Entity
     {
         internal readonly object[] components;
+        internal bool active;
 
         public Entity(EntityDef template)
         {
@@ -19,7 +20,7 @@ namespace Ghi
         public T Component<T>()
         {
             int index = Environment.ComponentDefDict[typeof(T)].index;
-            if (Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
+            if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
             {
                 string err = $"Invalid attempt to access component {typeof(T)} in read-write mode from within system {Environment.ActiveSystem}";
                 Dbg.Err(err);
@@ -32,7 +33,7 @@ namespace Ghi
         public object Component(Type type)
         {
             int index = Environment.ComponentDefDict[type].index;
-            if (Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
+            if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
             {
                 string err = $"Invalid attempt to access component {type} in read-write mode from within system {Environment.ActiveSystem}";
                 Dbg.Err(err);
@@ -45,7 +46,7 @@ namespace Ghi
         public T ComponentRO<T>()
         {
             int index = Environment.ComponentDefDict[typeof(T)].index;
-            if (Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
+            if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
             {
                 string err = $"Invalid attempt to access component {typeof(T)} in read-only mode from within system {Environment.ActiveSystem}";
                 Dbg.Err(err);
@@ -58,7 +59,7 @@ namespace Ghi
         public object ComponentRO(Type type)
         {
             int index = Environment.ComponentDefDict[type].index;
-            if (Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
+            if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
             {
                 string err = $"Invalid attempt to access component {type} in read-only mode from within system {Environment.ActiveSystem}";
                 Dbg.Err(err);

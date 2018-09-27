@@ -78,9 +78,16 @@ namespace Ghi
                 return;
             }
 
+            if (entity.active)
+            {
+                Dbg.Err($"Attempting to add an entity that is already active");
+                return;
+            }
+
             if (GlobalStatus == Status.Idle)
             {
                 Entities.Add(entity);
+                entity.active = true;
             }
             else
             {
@@ -96,9 +103,16 @@ namespace Ghi
                 return;
             }
 
+            if (!entity.active)
+            {
+                Dbg.Err($"Attempting to remove an entity that is already inactive");
+                return;
+            }
+
             if (GlobalStatus == Status.Idle)
             {
                 Entities.Remove(entity);
+                entity.active = false;
             }
             else
             {
