@@ -240,7 +240,7 @@ namespace Ghi
                             bool valid = true;
                             for (int k = 0; k < requiredIndices.Length; ++k)
                             {
-                                if (entity.components[k] == null)
+                                if (entity.components[requiredIndices[k]] == null)
                                 {
                                     valid = false;
                                     break;

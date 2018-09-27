@@ -1,6 +1,7 @@
 namespace Ghi.Test
 {
     using NUnit.Framework;
+    using System.Collections.Generic;
     using System.Linq;
 
     [TestFixture]
@@ -159,6 +160,94 @@ namespace Ghi.Test
             Assert.AreEqual(2, Environment.List.Count());
             Environment.Process(Defs.TestProcess);
             Assert.AreEqual(0, Environment.List.Count());
+        }
+
+        // IterationIndex test
+        // ----
+        // This tests for a specific rather bizarre indexing issue involving using the wrong index. I doubt this exact bug will happen again, but, hey, extra validation.
+
+        [Def.StaticReferences]
+        public static class IterationIndexDefs
+        {
+            static IterationIndexDefs() { Def.StaticReferences.Initialized(); }
+
+            public static EntityDef IterationIndexEntityA;
+            public static EntityDef IterationIndexEntityB;
+            public static ProcessDef IterationIndexProcess;
+        }
+
+        public static class IterationIndexSystemA
+        {
+            public static List<Entity> Touched = new List<Entity>();
+            public static void Execute(Entity entity) { Touched.Add(entity); }
+        }
+
+        public static class IterationIndexSystemB
+        {
+            public static List<Entity> Touched = new List<Entity>();
+            public static void Execute(Entity entity) { Touched.Add(entity); }
+        }
+
+        [Test]
+	    public void IterationIndex()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(IterationIndexDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""ComponentA"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <ComponentDef defName=""ComponentB"">
+                        <type>StringComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""IterationIndexEntityA"">
+                        <components>
+                            <li>ComponentA</li>
+                        </components>
+                    </EntityDef>
+
+                    <EntityDef defName=""IterationIndexEntityB"">
+                        <components>
+                            <li>ComponentB</li>
+                        </components>
+                    </EntityDef>
+
+                    <SystemDef defName=""IterationIndexSystemA"">
+                        <type>IterationIndexSystemA</type>
+                        <iterate>
+                            <ComponentA>ReadWrite</ComponentA>
+                        </iterate>
+                    </SystemDef>
+
+                    <SystemDef defName=""IterationIndexSystemB"">
+                        <type>IterationIndexSystemB</type>
+                        <iterate>
+                            <ComponentB>ReadWrite</ComponentB>
+                        </iterate>
+                    </SystemDef>
+
+                    <ProcessDef defName=""IterationIndexProcess"">
+                        <order>
+                            <li>IterationIndexSystemA</li>
+                            <li>IterationIndexSystemB</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            Environment.Add(new Entity(IterationIndexDefs.IterationIndexEntityA));
+            Environment.Add(new Entity(IterationIndexDefs.IterationIndexEntityB));
+
+            Environment.Process(IterationIndexDefs.IterationIndexProcess);
+
+            Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
+            Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
+            Assert.AreEqual(2, Enumerable.Union(IterationIndexSystemA.Touched, IterationIndexSystemB.Touched).Count());
         }
     }
 }
