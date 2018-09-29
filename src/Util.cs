@@ -14,5 +14,15 @@ namespace Ghi
             dict.TryGetValue(key, out V holder);
             return holder;
         }
+
+        internal static V TryGetValue<T, V>(this Dictionary<T, V> dict, T key, V def)
+        {
+            if (dict.TryGetValue(key, out V holder))
+            {
+                return holder;
+            }
+
+            return def;
+        }
     }
 }

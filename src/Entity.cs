@@ -26,7 +26,7 @@ namespace Ghi
             {
                 foreach (var element in insertions)
                 {
-                    int idx = (Environment.ComponentDefDict.TryGetValue(element.GetType())?.index).GetValueOrDefault(-1);
+                    int idx = Environment.ComponentIndexDict.TryGetValue(element.GetType(), -1);
                     if (idx == -1)
                     {
                         Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {template}");
@@ -59,7 +59,14 @@ namespace Ghi
 
         public T Component<T>()
         {
-            int index = Environment.ComponentDefDict[typeof(T)].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {typeof(T)}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
             {
                 string err = $"Invalid attempt to access component {typeof(T)} in read-write mode from within system {Environment.ActiveSystem}";
@@ -72,7 +79,14 @@ namespace Ghi
 
         public object Component(Type type)
         {
-            int index = Environment.ComponentDefDict[type].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {type}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
             {
                 string err = $"Invalid attempt to access component {type} in read-write mode from within system {Environment.ActiveSystem}";
@@ -85,7 +99,14 @@ namespace Ghi
 
         public T ComponentRO<T>()
         {
-            int index = Environment.ComponentDefDict[typeof(T)].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {typeof(T)}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
             {
                 string err = $"Invalid attempt to access component {typeof(T)} in read-only mode from within system {Environment.ActiveSystem}";
@@ -98,7 +119,14 @@ namespace Ghi
 
         public object ComponentRO(Type type)
         {
-            int index = Environment.ComponentDefDict[type].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {type}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
             {
                 string err = $"Invalid attempt to access component {type} in read-only mode from within system {Environment.ActiveSystem}";

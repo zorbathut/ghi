@@ -16,6 +16,7 @@ namespace Ghi
         private static Status GlobalStatus = Status.Uninitialized;
 
         internal static readonly Dictionary<Type, ComponentDef> ComponentDefDict = new Dictionary<Type, ComponentDef>();
+        internal static readonly Dictionary<Type, int> ComponentIndexDict = new Dictionary<Type, int>();
         private static readonly HashSet<Entity> Entities = new HashSet<Entity>();
 
         private static readonly List<Action> PhaseEndActions = new List<Action>();
@@ -56,6 +57,7 @@ namespace Ghi
                 }
 
                 ComponentDefDict[def.type] = def;
+                ComponentIndexDict[def.type] = def.index;
             }
 
             Singletons = new object[Def.Database<ComponentDef>.Count];
@@ -122,7 +124,14 @@ namespace Ghi
 
         public static T Singleton<T>()
         {
-            int index = ComponentDefDict[typeof(T)].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {typeof(T)}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
             {
                 string err = $"Invalid attempt to access singleton {typeof(T)} in read-write mode from within system {ActiveSystem}";
@@ -135,7 +144,14 @@ namespace Ghi
 
         public static object Singleton(Type type)
         {
-            int index = ComponentDefDict[type].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {type}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
             {
                 string err = $"Invalid attempt to access singleton {type} in read-write mode from within system {ActiveSystem}";
@@ -148,7 +164,14 @@ namespace Ghi
 
         public static T SingletonRO<T>()
         {
-            int index = ComponentDefDict[typeof(T)].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {typeof(T)}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
             {
                 string err = $"Invalid attempt to access singleton {typeof(T)} in read-only mode from within system {ActiveSystem}";
@@ -161,7 +184,14 @@ namespace Ghi
 
         public static object SingletonRO(Type type)
         {
-            int index = ComponentDefDict[type].index;
+            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
+            if (index == -1)
+            {
+                string err = $"Invalid attempt to access non-component type {type}";
+                Dbg.Err(err);
+                throw new PermissionException(err);
+            }
+
             if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
             {
                 string err = $"Invalid attempt to access singleton {type} in read-only mode from within system {ActiveSystem}";
@@ -320,6 +350,7 @@ namespace Ghi
             }
 
             ComponentDefDict.Clear();
+            ComponentIndexDict.Clear();
             Entities.Clear();
             PhaseEndActions.Clear();
 
