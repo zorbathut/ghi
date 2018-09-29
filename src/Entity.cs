@@ -1,19 +1,59 @@
 namespace Ghi
 {
     using System;
+    using System.Linq;
 
     public class Entity
     {
         internal readonly object[] components;
         internal bool active;
 
-        public Entity(EntityDef template)
+        public Entity(EntityDef template) : this(template, null)
         {
             components = new object[Def.Database<ComponentDef>.Count];
 
             foreach (var component in template.components)
             {
                 components[component.index] = Activator.CreateInstance(component.type);
+            }
+        }
+
+        public Entity(EntityDef template, params object[] insertions)
+        {
+            components = new object[Def.Database<ComponentDef>.Count];
+
+            if (insertions != null)
+            {
+                foreach (var element in insertions)
+                {
+                    int idx = (Environment.ComponentDefDict.TryGetValue(element.GetType())?.index).GetValueOrDefault(-1);
+                    if (idx == -1)
+                    {
+                        Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {template}");
+                        continue;
+                    }
+
+                    if (!template.components.Any(c => c.index == idx))
+                    {
+                        Dbg.Err($"Received invalid entity component parameter type {element.GetType()} when initializing {template}");
+                        continue;
+                    }
+
+                    if (components[idx] != null)
+                    {
+                        Dbg.Err($"Received duplicate entity component parameters {components[idx]} and {element} when initializing {template}");
+                    }
+
+                    components[idx] = element;
+                }
+            }
+
+            foreach (var component in template.components)
+            {
+                if (components[component.index] == null)
+                {
+                    components[component.index] = Activator.CreateInstance(component.type);
+                }
             }
         }
 

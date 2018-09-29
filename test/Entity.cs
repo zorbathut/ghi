@@ -98,5 +98,111 @@ namespace Ghi.Test
             Assert.AreEqual(1, ents.Length);
             Assert.AreEqual(4, ents[0].Component<SimpleComponent>().number);
         }
+
+        [Test]
+        public void ExplicitComponent()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            var comp = new SimpleComponent();
+            var entity = new Entity(EntityTemplateDefs.EntityModel, comp);
+
+            Assert.AreSame(comp, entity.Component<SimpleComponent>());
+        }
+
+        [Test]
+        public void ExplicitComponentDupe()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            var comp = new SimpleComponent();
+            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp, comp));
+        }
+
+        [Test]
+        public void ExplicitComponentInvalid()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            var comp = new StringComponent();
+            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp));
+        }
+
+        [Test]
+        public void ExplicitComponentWrong()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <ComponentDef defName=""NonEntityComponent"">
+                        <type>StringComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            var comp = new StringComponent();
+            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp));
+        }
     }
 }
