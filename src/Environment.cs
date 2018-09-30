@@ -230,13 +230,14 @@ namespace Ghi
                         ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
                         if (component != null && component.singleton)
                         {
-                            var permission = system.singleton.TryGetValue(component);
-                            if (permission == SystemDef.Permissions.None)
+                            if (!system.accessibleSingletonsRO[component.index])
                             {
-                                Dbg.Err($"{system}: Attempted to use singleton {component} without any permission");
+                                var err = $"{system}: Attempted to use singleton {component} without any permission";
+                                Dbg.Err(err);
+                                throw new PermissionException(err);
                             }
 
-                            if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
+                            if (!system.accessibleSingletonsRW[component.index] && !methodParameters[i].Name.EndsWith("_ro"))
                             {
                                 Dbg.Wrn($"{system}: Using read-only singleton {component} without \"_ro\" suffix");
                             }

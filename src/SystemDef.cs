@@ -140,6 +140,15 @@ namespace Ghi
                     }
                 }
             }
+
+            // always allow immutable singleton access
+            foreach (var component in Def.Database<ComponentDef>.List)
+            {
+                if (component.singleton && component.immutable)
+                {
+                    accessibleSingletonsRO[component.index] = true;
+                }
+            }
         }
     }
 }

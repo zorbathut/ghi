@@ -83,8 +83,7 @@ namespace Ghi.Test
 
             SingletonSystem.Executions = 0;
             ExpectErrors(() => Environment.Process(Defs.TestProcess));
-            Assert.AreEqual(1, SingletonSystem.Executions);
-            Assert.AreEqual(15, Environment.Singleton<SimpleComponent>().number);
+            Assert.AreEqual(0, SingletonSystem.Executions);
 	    }
 
         [Test]
@@ -388,6 +387,72 @@ namespace Ghi.Test
 
             SingletonPermissionRoSystem.Executions = 0;
             ExpectErrors(() => Environment.Process(Defs.TestProcess));
+            Assert.AreEqual(2, SingletonPermissionRoSystem.Executions);
+	    }
+
+        [Test]
+	    public void PermissionsRwIm()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""Singleton"">
+                        <type>SimpleComponent</type>
+                        <singleton>true</singleton>
+                        <immutable>true</immutable>
+                    </ComponentDef>
+
+                    <SystemDef defName=""TestSystem"">
+                        <type>SingletonPermissionRwSystem</type>
+                    </SystemDef>
+
+                    <ProcessDef defName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            SingletonPermissionRoSystem.Executions = 0;
+            ExpectErrors(() => Environment.Process(Defs.TestProcess));
+            Assert.AreEqual(0, SingletonPermissionRoSystem.Executions);
+	    }
+
+        [Test]
+	    public void PermissionsRoIm()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""Singleton"">
+                        <type>SimpleComponent</type>
+                        <singleton>true</singleton>
+                        <immutable>true</immutable>
+                    </ComponentDef>
+
+                    <SystemDef defName=""TestSystem"">
+                        <type>SingletonPermissionRoSystem</type>
+                    </SystemDef>
+
+                    <ProcessDef defName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            SingletonPermissionRoSystem.Executions = 0;
+            Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, SingletonPermissionRoSystem.Executions);
 	    }
     }
