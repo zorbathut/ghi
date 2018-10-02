@@ -24,5 +24,10 @@ namespace Ghi
 
             return def;
         }
+
+        internal static Dictionary<K, V> ToDictionary<K, V>(this IEnumerable<Tuple<K, V>> enumerable)
+        {
+            return enumerable.ToDictionary(kvp => kvp.Item1, kvp => kvp.Item2);
+        }
     }
 }

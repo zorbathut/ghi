@@ -26,7 +26,15 @@ namespace Ghi
             {
                 foreach (var element in insertions)
                 {
-                    int idx = Environment.ComponentIndexDict.TryGetValue(element.GetType(), -1);
+                    // we could certainly cache the result of this if we wanted it to be faster
+                    Type matching = element.GetType();
+                    int idx = template.componentIndexDict.TryGetValue(matching, -1);
+                    while (idx == -1 && matching.BaseType != null)
+                    {
+                        matching = matching.BaseType;
+                        idx = template.componentIndexDict.TryGetValue(matching, -1);
+                    }
+
                     if (idx == -1)
                     {
                         Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {template}");

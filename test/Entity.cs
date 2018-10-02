@@ -204,5 +204,37 @@ namespace Ghi.Test
             var comp = new StringComponent();
             ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp));
         }
+
+        public class DerivedComponent : SimpleComponent
+        {
+
+        }
+
+        [Test]
+        public void ExplicitComponentDerived()
+        {
+            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""EntityComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>EntityComponent</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            var comp = new DerivedComponent();
+            var entity = new Entity(EntityTemplateDefs.EntityModel, comp);
+
+            Assert.AreSame(comp, entity.Component<SimpleComponent>());
+        }
     }
 }
