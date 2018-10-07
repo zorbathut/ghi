@@ -58,6 +58,16 @@ namespace Ghi
                 }
             }
         }
+        
+        public bool HasComponent<T>()
+        {
+            return def.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING) >= 0;
+        }
+
+        public bool HasComponent(Type type)
+        {
+            return def.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING) >= 0;
+        }
 
         public T Component<T>()
         {
