@@ -8,15 +8,7 @@ namespace Ghi
         internal readonly object[] components;
         internal bool active;
 
-        public Entity(EntityDef template) : this(template, null)
-        {
-            components = new object[Def.Database<ComponentDef>.Count];
-
-            foreach (var component in template.components)
-            {
-                components[component.index] = Activator.CreateInstance(component.type);
-            }
-        }
+        public Entity(EntityDef template) : this(template, null) { }
 
         public Entity(EntityDef template, params object[] insertions)
         {
