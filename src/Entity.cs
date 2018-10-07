@@ -5,6 +5,7 @@ namespace Ghi
 
     public class Entity
     {
+        internal EntityDef def;
         internal readonly object[] components;
         internal bool active;
 
@@ -12,6 +13,7 @@ namespace Ghi
 
         public Entity(EntityDef template, params object[] insertions)
         {
+            def = template;
             components = new object[Def.Database<ComponentDef>.Count];
 
             if (insertions != null)
@@ -20,35 +22,35 @@ namespace Ghi
                 {
                     // we could certainly cache the result of this if we wanted it to be faster
                     Type matching = element.GetType();
-                    int idx = template.componentIndexDict.TryGetValue(matching, -1);
-                    while (idx == -1 && matching.BaseType != null)
+                    int idx = def.componentIndexDict.TryGetValue(matching, Environment.COMPONENTINDEX_MISSING);
+                    while (idx == Environment.COMPONENTINDEX_MISSING && matching.BaseType != null)
                     {
                         matching = matching.BaseType;
-                        idx = template.componentIndexDict.TryGetValue(matching, -1);
+                        idx = def.componentIndexDict.TryGetValue(matching, Environment.COMPONENTINDEX_MISSING);
                     }
 
-                    if (idx == -1)
+                    if (idx == Environment.COMPONENTINDEX_MISSING || idx == Environment.COMPONENTINDEX_AMBIGUOUS || !Def.Database<ComponentDef>.List[idx].type.IsAssignableFrom(element.GetType()))
                     {
-                        Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {template}");
+                        Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {def}");
                         continue;
                     }
 
-                    if (!template.components.Any(c => c.index == idx))
+                    if (!def.components.Any(c => c.index == idx))
                     {
-                        Dbg.Err($"Received invalid entity component parameter type {element.GetType()} when initializing {template}");
+                        Dbg.Err($"Received invalid entity component parameter type {element.GetType()} when initializing {def}");
                         continue;
                     }
 
                     if (components[idx] != null)
                     {
-                        Dbg.Err($"Received duplicate entity component parameters {components[idx]} and {element} when initializing {template}");
+                        Dbg.Err($"Received duplicate entity component parameters {components[idx]} and {element} when initializing {def}");
                     }
 
                     components[idx] = element;
                 }
             }
 
-            foreach (var component in template.components)
+            foreach (var component in def.components)
             {
                 if (components[component.index] == null)
                 {
@@ -59,12 +61,19 @@ namespace Ghi
 
         public T Component<T>()
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
-            if (index == -1)
+            int index = def.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING);
+            if (index == Environment.COMPONENTINDEX_MISSING)
             {
                 string err = $"Invalid attempt to access non-component type {typeof(T)}";
                 Dbg.Err(err);
                 throw new PermissionException(err);
+            }
+
+            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
+            {
+                string err = $"Invalid attempt to access ambiguous type {typeof(T)} from entity {def}";
+                Dbg.Err(err);
+                throw new AmbiguityException(err);
             }
 
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
@@ -79,12 +88,19 @@ namespace Ghi
 
         public object Component(Type type)
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
-            if (index == -1)
+            int index = def.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING);
+            if (index == Environment.COMPONENTINDEX_MISSING)
             {
                 string err = $"Invalid attempt to access non-component type {type}";
                 Dbg.Err(err);
                 throw new PermissionException(err);
+            }
+
+            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
+            {
+                string err = $"Invalid attempt to access ambiguous type {type} from entity {def}";
+                Dbg.Err(err);
+                throw new AmbiguityException(err);
             }
 
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
@@ -99,12 +115,19 @@ namespace Ghi
 
         public T ComponentRO<T>()
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
-            if (index == -1)
+            int index = def.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING);
+            if (index == Environment.COMPONENTINDEX_MISSING)
             {
                 string err = $"Invalid attempt to access non-component type {typeof(T)}";
                 Dbg.Err(err);
                 throw new PermissionException(err);
+            }
+
+            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
+            {
+                string err = $"Invalid attempt to access ambiguous type {typeof(T)} from entity {def}";
+                Dbg.Err(err);
+                throw new AmbiguityException(err);
             }
 
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
@@ -119,12 +142,19 @@ namespace Ghi
 
         public object ComponentRO(Type type)
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
-            if (index == -1)
+            int index = def.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING);
+            if (index == Environment.COMPONENTINDEX_MISSING)
             {
                 string err = $"Invalid attempt to access non-component type {type}";
                 Dbg.Err(err);
                 throw new PermissionException(err);
+            }
+
+            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
+            {
+                string err = $"Invalid attempt to access ambiguous type {type} from entity {def}";
+                Dbg.Err(err);
+                throw new AmbiguityException(err);
             }
 
             if (active && Environment.ActiveSystem != null && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))

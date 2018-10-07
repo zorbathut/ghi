@@ -30,7 +30,24 @@ namespace Ghi
                 yield return err;
             }
 
-            componentIndexDict = components.Select(c => Tuple.Create(c.type, c.index)).ToDictionary();
+            foreach (var comp in components)
+            {
+                var type = comp.type;
+
+                while (type != null)
+                {
+                    if (componentIndexDict.ContainsKey(type))
+                    {
+                        componentIndexDict[type] = Environment.COMPONENTINDEX_AMBIGUOUS;
+                    }
+                    else
+                    {
+                        componentIndexDict[type] = comp.index;
+                    }
+
+                    type = type.BaseType;
+                }
+            }
         }
     }
 }

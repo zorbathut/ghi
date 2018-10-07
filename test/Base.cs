@@ -101,5 +101,20 @@ namespace Ghi.Test
             handlingErrors = false;
             handledError = false;
         }
+
+        protected void ExpectException(Action action)
+        {
+            bool excepted = false;
+            try
+            {
+                action();
+            }
+            catch
+            {
+                excepted = true;
+            }
+
+            Assert.IsTrue(excepted);
+        }
     }
 }

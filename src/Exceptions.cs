@@ -18,4 +18,21 @@ namespace Ghi
         {
         }
     }
+
+    public class AmbiguityException : ArgumentException
+    {
+        public AmbiguityException()
+        {
+        }
+
+        public AmbiguityException(string message)
+            : base(message)
+        {
+        }
+
+        public AmbiguityException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
 }

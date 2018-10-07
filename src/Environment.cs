@@ -6,6 +6,9 @@ namespace Ghi
 
     public static class Environment
     {
+        internal const int COMPONENTINDEX_MISSING = -1;
+        internal const int COMPONENTINDEX_AMBIGUOUS = -2;
+
         // Global status
         private enum Status
         {
