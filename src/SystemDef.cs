@@ -14,6 +14,7 @@ namespace Ghi
             ReadWrite,
         }
 
+        public bool permissions = true;
         public Dictionary<ComponentDef, Permissions> iterate = new Dictionary<ComponentDef, Permissions>();
         public Dictionary<ComponentDef, Permissions> full = new Dictionary<ComponentDef, Permissions>();
         public Dictionary<ComponentDef, Permissions> singleton = new Dictionary<ComponentDef, Permissions>();

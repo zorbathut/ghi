@@ -175,7 +175,7 @@ namespace Ghi
                 throw new PermissionException(err);
             }
 
-            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
+            if (ActiveSystem != null && ActiveSystem.permissions && !ActiveSystem.accessibleSingletonsRO[index])
             {
                 string err = $"Invalid attempt to access singleton {typeof(T)} in read-only mode from within system {ActiveSystem}";
                 Dbg.Err(err);
@@ -195,7 +195,7 @@ namespace Ghi
                 throw new PermissionException(err);
             }
 
-            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRO[index])
+            if (ActiveSystem != null && ActiveSystem.permissions && !ActiveSystem.accessibleSingletonsRO[index])
             {
                 string err = $"Invalid attempt to access singleton {type} in read-only mode from within system {ActiveSystem}";
                 Dbg.Err(err);

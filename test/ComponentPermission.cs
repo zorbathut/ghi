@@ -322,5 +322,53 @@ namespace Ghi.Test
             ExpectErrors(() => Environment.Process(Defs.TestProcess));
             Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
 	    }
+
+        [Test]
+	    public void PermissionsRoNoDisabled()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""SimpleComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <ComponentDef defName=""StringComponent"">
+                        <type>StringComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>SimpleComponent</li>
+                            <li>StringComponent</li>
+                        </components>
+                    </EntityDef>
+
+                    <SystemDef defName=""TestSystem"">
+                        <type>ComponentPermissionRoSystem</type>
+                        <permissions>false</permissions>
+                        <iterate>
+                            <StringComponent>ReadWrite</StringComponent>
+                        </iterate>
+                    </SystemDef>
+
+                    <ProcessDef defName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+
+            ComponentPermissionRoSystem.Executions = 0;
+            Environment.Process(Defs.TestProcess);
+            Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
+	    }
     }
 }

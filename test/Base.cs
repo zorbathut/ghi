@@ -72,6 +72,10 @@ namespace Ghi.Test
                     throw new ArgumentException(str);
                 }
             };
+
+            Def.Config.ExceptionHandler = e => {
+                Def.Config.ErrorHandler(e.ToString());
+            };
         }
 
         protected void ExpectWarnings(Action action)
