@@ -18,13 +18,16 @@ namespace Ghi
         }
         private static Status GlobalStatus = Status.Uninitialized;
 
+        // Parsed def config data
         internal static readonly Dictionary<Type, ComponentDef> ComponentDefDict = new Dictionary<Type, ComponentDef>();
         internal static readonly Dictionary<Type, int> ComponentIndexDict = new Dictionary<Type, int>();
+
+        // Entity list
         private static readonly HashSet<Entity> Entities = new HashSet<Entity>();
-
-        private static readonly List<Action> PhaseEndActions = new List<Action>();
-
         private static object[] Singletons;
+
+        // Working space
+        private static readonly List<Action> PhaseEndActions = new List<Action>();
 
         internal static SystemDef ActiveSystem;
         internal static Entity ActiveEntity;
