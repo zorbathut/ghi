@@ -236,5 +236,55 @@ namespace Ghi.Test
 
             Assert.AreSame(comp, entity.Component<SimpleComponent>());
         }
+
+        [Test]
+	    public void ToStringNonexistent()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""Component"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+            Environment.Add(new Ghi.Entity(EntityTemplateDefs.EntityModel));
+            var ents = Environment.List.ToArray();
+            ents[0].ToString(); // we're just checking to make sure it doesn't crash, we actually don't care what it outputs
+	    }
+
+        [Test]
+	    public void ToStringExistent()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""Component"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup(toString: e => "ToStringTest");
+            Environment.Add(new Ghi.Entity(EntityTemplateDefs.EntityModel));
+            var ents = Environment.List.ToArray();
+            Assert.AreEqual("ToStringTest", ents[0].ToString());
+	    }
     }
 }

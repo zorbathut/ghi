@@ -9,7 +9,7 @@ namespace Ghi
         internal const int COMPONENTINDEX_MISSING = -1;
         internal const int COMPONENTINDEX_AMBIGUOUS = -2;
 
-        // Global status
+        // Init status, config
         private enum Status
         {
             Uninitialized,
@@ -17,6 +17,7 @@ namespace Ghi
             Processing,
         }
         private static Status GlobalStatus = Status.Uninitialized;
+        internal static Func<Entity, string> EntityToString = null;
 
         // Parsed def config data
         internal static readonly Dictionary<Type, ComponentDef> ComponentDefDict = new Dictionary<Type, ComponentDef>();
@@ -48,12 +49,14 @@ namespace Ghi
             }
         }
 
-        public static void Startup()
+        public static void Startup(Func<Entity, string> toString = null)
         {
             if (GlobalStatus != Status.Uninitialized)
             {
                 Dbg.Err($"Environment starting up while the world is in {GlobalStatus} state; should be {Status.Uninitialized} state");
             }
+
+            EntityToString = toString;
 
             foreach (var def in Def.Database<ComponentDef>.List)
             {

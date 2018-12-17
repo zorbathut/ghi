@@ -176,5 +176,17 @@ namespace Ghi
 
             return components[index];
         }
+
+        public override string ToString()
+        {
+            if (Environment.EntityToString != null)
+            {
+                return Environment.EntityToString(this);
+            }
+            else
+            {
+                return base.ToString();
+            }
+        }
     }
 }
