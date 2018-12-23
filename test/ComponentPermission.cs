@@ -370,5 +370,63 @@ namespace Ghi.Test
             Environment.Process(Defs.TestProcess);
             Assert.AreEqual(2, ComponentPermissionRoSystem.Executions);
 	    }
+
+        public static class ComponentPermissionFullIteration
+        {
+            public static int Executions = 0;
+
+            public static void Execute(Entity entity, SimpleComponent simple, StringComponent str)
+            {
+                ++Executions;
+            }
+        }
+
+        [Test]
+	    public void PermissionsIterationDisabled()
+	    {
+	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            parser.AddString(@"
+                <Defs>
+                    <ComponentDef defName=""SimpleComponent"">
+                        <type>SimpleComponent</type>
+                    </ComponentDef>
+
+                    <ComponentDef defName=""StringComponent"">
+                        <type>StringComponent</type>
+                    </ComponentDef>
+
+                    <EntityDef defName=""EntityModel"">
+                        <components>
+                            <li>SimpleComponent</li>
+                            <li>StringComponent</li>
+                        </components>
+                    </EntityDef>
+
+                    <SystemDef defName=""TestSystem"">
+                        <type>ComponentPermissionFullIteration</type>
+                        <permissions>false</permissions>
+                        <iterate>
+                            <StringComponent>ReadWrite</StringComponent>
+                        </iterate>
+                    </SystemDef>
+
+                    <ProcessDef defName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDef>
+                </Defs>
+            ");
+            parser.Finish();
+
+            Environment.Startup();
+
+            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Defs.EntityModel));
+
+            ComponentPermissionFullIteration.Executions = 0;
+            Environment.Process(Defs.TestProcess);
+            Assert.AreEqual(2, ComponentPermissionFullIteration.Executions);
+	    }
     }
 }

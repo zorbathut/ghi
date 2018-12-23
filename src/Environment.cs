@@ -239,16 +239,19 @@ namespace Ghi
                         ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
                         if (component != null && component.singleton)
                         {
-                            if (!system.accessibleSingletonsRO[component.index])
+                            if (system.permissions)
                             {
-                                var err = $"{system}: Attempted to use singleton {component} without any permission";
-                                Dbg.Err(err);
-                                throw new PermissionException(err);
-                            }
+                                if (!system.accessibleSingletonsRO[component.index])
+                                {
+                                    var err = $"{system}: Attempted to use singleton {component} without any permission";
+                                    Dbg.Err(err);
+                                    throw new PermissionException(err);
+                                }
 
-                            if (!system.accessibleSingletonsRW[component.index] && !methodParameters[i].Name.EndsWith("_ro"))
-                            {
-                                Dbg.Wrn($"{system}: Using read-only singleton {component} without \"_ro\" suffix");
+                                if (!system.accessibleSingletonsRW[component.index] && !methodParameters[i].Name.EndsWith("_ro"))
+                                {
+                                    Dbg.Wrn($"{system}: Using read-only singleton {component} without \"_ro\" suffix");
+                                }
                             }
 
                             activeParameters[i] = Singletons[component.index];
@@ -303,15 +306,18 @@ namespace Ghi
                                 ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
                                 if (component != null && !component.singleton)
                                 {
-                                    var permission = system.iterate.TryGetValue(component);
-                                    if (permission == SystemDef.Permissions.None)
+                                    if (system.permissions)
                                     {
-                                        Dbg.Err($"{system}: Attempted to use component {component} without any permission");
-                                    }
+                                        var permission = system.iterate.TryGetValue(component);
+                                        if (permission == SystemDef.Permissions.None)
+                                        {
+                                            Dbg.Err($"{system}: Attempted to use component {component} without any permission");
+                                        }
 
-                                    if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
-                                    {
-                                        Dbg.Wrn($"{system}: Using read-only component {component} without \"_ro\" suffix");
+                                        if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
+                                        {
+                                            Dbg.Wrn($"{system}: Using read-only component {component} without \"_ro\" suffix");
+                                        }
                                     }
 
                                     activeParameters[i] = entity.components[component.index];
