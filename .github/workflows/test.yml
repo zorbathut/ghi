@@ -1,0 +1,20 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '2.1.x'
+    - name: Setup environment
+      run: dotnet restore
+    - name: Build
+      run: dotnet build
+    - name: Test
+      run: dotnet test --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
