@@ -1,3 +1,3 @@
 [submodule "lib/def"]
-	path = lib/def
+	path = lib/dec
 	url = https://github.com/zorbathut/def.git

@@ -6,43 +6,44 @@ namespace Ghi.Test
     [TestFixture]
     public class EntityTest : Base
     {
-        [Def.StaticReferences]
-        public static class EntityTemplateDefs
+        [Dec.StaticReferences]
+        public static class EntityTemplateDecs
         {
-            static EntityTemplateDefs() { Def.StaticReferences.Initialized(); }
+            static EntityTemplateDecs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static EntityDef EntityModel;
+            public static EntityDec EntityModel;
         }
 
-        [Def.StaticReferences]
+        [Dec.StaticReferences]
         public static class EntityProcessTemplateDefs
         {
-            static EntityProcessTemplateDefs() { Def.StaticReferences.Initialized(); }
+            static EntityProcessTemplateDefs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static ProcessDef TestProcess;
+            public static ProcessDec TestProcess;
         }
 
 	    [Test]
 	    public void Creation()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Ghi.Entity(EntityTemplateDefs.EntityModel));
+            Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
             var ents = Environment.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
@@ -53,7 +54,7 @@ namespace Ghi.Test
         {
             public static void Execute()
             {
-                var entity = new Entity(EntityTemplateDefs.EntityModel);
+                var entity = new Entity(EntityTemplateDecs.EntityModel);
                 Environment.Add(entity);    // We intentionally add it first; we should still be able to muck with it
 
                 entity.Component<SimpleComponent>().number = 4;
@@ -63,29 +64,30 @@ namespace Ghi.Test
         [Test]
         public void Inactive()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs), typeof(EntityProcessTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs), typeof(EntityProcessTemplateDefs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>InactiveTestSystem</type>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
@@ -102,26 +104,27 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponent()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             var comp = new SimpleComponent();
-            var entity = new Entity(EntityTemplateDefs.EntityModel, comp);
+            var entity = new Entity(EntityTemplateDecs.EntityModel, comp);
 
             Assert.AreSame(comp, entity.Component<SimpleComponent>());
         }
@@ -129,80 +132,83 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentDupe()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             var comp = new SimpleComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp, comp));
+            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp, comp));
         }
 
         [Test]
         public void ExplicitComponentInvalid()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             var comp = new StringComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp));
+            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
         }
 
         [Test]
         public void ExplicitComponentWrong()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <ComponentDef defName=""NonEntityComponent"">
+                    <ComponentDec decName=""NonEntityComponent"">
                         <type>StringComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             var comp = new StringComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDefs.EntityModel, comp));
+            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
         }
 
         public class DerivedComponent : SimpleComponent
@@ -213,26 +219,27 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentDerived()
         {
-            var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""EntityComponent"">
+                <Decs>
+                    <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>EntityComponent</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             var comp = new DerivedComponent();
-            var entity = new Entity(EntityTemplateDefs.EntityModel, comp);
+            var entity = new Entity(EntityTemplateDecs.EntityModel, comp);
 
             Assert.AreSame(comp, entity.Component<SimpleComponent>());
         }
@@ -240,24 +247,25 @@ namespace Ghi.Test
         [Test]
 	    public void ToStringNonexistent()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Ghi.Entity(EntityTemplateDefs.EntityModel));
+            Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
             var ents = Environment.List.ToArray();
             ents[0].ToString(); // we're just checking to make sure it doesn't crash, we actually don't care what it outputs
 	    }
@@ -265,24 +273,25 @@ namespace Ghi.Test
         [Test]
 	    public void ToStringExistent()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(EntityTemplateDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup(toString: e => "ToStringTest");
-            Environment.Add(new Ghi.Entity(EntityTemplateDefs.EntityModel));
+            Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
             var ents = Environment.List.ToArray();
             Assert.AreEqual("ToStringTest", ents[0].ToString());
 	    }

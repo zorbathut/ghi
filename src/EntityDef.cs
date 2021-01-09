@@ -4,31 +4,25 @@ namespace Ghi
     using System.Collections.Generic;
     using System.Linq;
 
-    public class EntityDef : Def.Def
+    public class EntityDec : Dec.Dec
     {
-        public List<ComponentDef> components;
+        public List<ComponentDec> components;
 
         internal Dictionary<Type, int> componentIndexDict = new Dictionary<Type, int>();
 
-        public override IEnumerable<string> ConfigErrors()
+        public override void ConfigErrors(Action<string> reporter)
         {
-            foreach (var err in base.ConfigErrors())
-            {
-                yield return err;
-            }
+            base.ConfigErrors(reporter);
 
             if (components == null || components.Count == 0)
             {
-                yield return "No defined components";
+                reporter("No defined components");
             }
         }
 
-        public override IEnumerable<string> PostLoad()
+        public override void PostLoad(Action<string> reporter)
         {
-            foreach (var err in base.PostLoad())
-            {
-                yield return err;
-            }
+            base.PostLoad(reporter);
 
             foreach (var comp in components)
             {

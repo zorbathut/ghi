@@ -6,13 +6,13 @@ namespace Ghi.Test
     [TestFixture]
     public class Components : Base
     {
-        [Def.StaticReferences]
+        [Dec.StaticReferences]
         public static class Defs
         {
-            static Defs() { Def.StaticReferences.Initialized(); }
+            static Defs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static EntityDef EntityModelA;
-            public static EntityDef EntityModelB;
+            public static EntityDec EntityModelA;
+            public static EntityDec EntityModelB;
         }
 
         public class SubclassBase
@@ -33,30 +33,31 @@ namespace Ghi.Test
         [Test]
 	    public void Subclass()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Defs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""ComponentA"">
+                <Decs>
+                    <ComponentDec decName=""ComponentA"">
                         <type>SubclassDerived</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <ComponentDef defName=""ComponentB"">
+                    <ComponentDec decName=""ComponentB"">
                         <type>SubclassDerivedAlternate</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModelA"">
+                    <EntityDec decName=""EntityModelA"">
                         <components>
                             <li>ComponentA</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <EntityDef defName=""EntityModelB"">
+                    <EntityDec decName=""EntityModelB"">
                         <components>
                             <li>ComponentA</li>
                             <li>ComponentB</li>
                         </components>
-                    </EntityDef>
-                </Defs>
+                    </EntityDec>
+                </Decs>
             ");
             parser.Finish();
 

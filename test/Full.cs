@@ -6,13 +6,13 @@ namespace Ghi.Test
     [TestFixture]
     public class Full : Base
     {
-        [Def.StaticReferences]
-        public static class Defs
+        [Dec.StaticReferences]
+        public static class Decs
         {
-            static Defs() { Def.StaticReferences.Initialized(); }
+            static Decs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static ProcessDef TestProcess;
-            public static EntityDef Entity;
+            public static ProcessDec TestProcess;
+            public static EntityDec Entity;
         }
 
         public static class FullPermissionRwSystem
@@ -40,240 +40,246 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRwSystem</type>
                         <full>
                             <Component>ReadWrite</Component>
                         </full>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRwSystem</type>
                         <full>
                             <Component>ReadOnly</Component>
                         </full>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(Defs.TestProcess));
+            ExpectErrors(() => Environment.Process(Decs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRwNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRwSystem</type>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRwSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(Defs.TestProcess));
+            ExpectErrors(() => Environment.Process(Decs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRw()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRoSystem</type>
                         <full>
                             <Component>ReadWrite</Component>
                         </full>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoRo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRoSystem</type>
                         <full>
                             <Component>ReadOnly</Component>
                         </full>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
 
         [Test]
 	    public void PermissionsRoNo()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""Entity"">
+                    <EntityDec decName=""Entity"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>FullPermissionRoSystem</type>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
-            Environment.Add(new Entity(Defs.Entity));
+            Environment.Add(new Entity(Decs.Entity));
 
             FullPermissionRoSystem.Executions = 0;
-            ExpectErrors(() => Environment.Process(Defs.TestProcess));
+            ExpectErrors(() => Environment.Process(Decs.TestProcess));
             Assert.AreEqual(2, FullPermissionRoSystem.Executions);
 	    }
     }

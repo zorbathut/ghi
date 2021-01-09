@@ -19,8 +19,8 @@ namespace Ghi
         private static Status GlobalStatus = Status.Uninitialized;
         internal static Func<Entity, string> EntityToString = null;
 
-        // Parsed def config data
-        internal static readonly Dictionary<Type, ComponentDef> ComponentDefDict = new Dictionary<Type, ComponentDef>();
+        // Parsed dec config data
+        internal static readonly Dictionary<Type, ComponentDec> ComponentDecDict = new Dictionary<Type, ComponentDec>();
         internal static readonly Dictionary<Type, int> ComponentIndexDict = new Dictionary<Type, int>();
 
         // Entity list
@@ -30,7 +30,7 @@ namespace Ghi
         // Working space
         private static readonly List<Action> PhaseEndActions = new List<Action>();
 
-        internal static SystemDef ActiveSystem;
+        internal static SystemDec ActiveSystem;
         internal static Entity ActiveEntity;
 
         public static int Count
@@ -58,23 +58,23 @@ namespace Ghi
 
             EntityToString = toString;
 
-            foreach (var def in Def.Database<ComponentDef>.List)
+            foreach (var dec in Dec.Database<ComponentDec>.List)
             {
-                if (ComponentDefDict.ContainsKey(def.type))
+                if (ComponentDecDict.ContainsKey(dec.type))
                 {
-                    Dbg.Err("Found two duplicate ComponentDef's with the same type");
+                    Dbg.Err("Found two duplicate ComponentDec's with the same type");
                 }
 
-                ComponentDefDict[def.type] = def;
-                ComponentIndexDict[def.type] = def.index;
+                ComponentDecDict[dec.type] = dec;
+                ComponentIndexDict[dec.type] = dec.index;
             }
 
-            Singletons = new object[Def.Database<ComponentDef>.Count];
-            foreach (var def in Def.Database<ComponentDef>.List)
+            Singletons = new object[Dec.Database<ComponentDec>.Count];
+            foreach (var dec in Dec.Database<ComponentDec>.List)
             {
-                if (def.singleton)
+                if (dec.singleton)
                 {
-                    Singletons[def.index] = Activator.CreateInstance(def.type);
+                    Singletons[dec.index] = Activator.CreateInstance(dec.type);
                 }
             }
 
@@ -211,7 +211,7 @@ namespace Ghi
             return Singletons[index];
         }
 
-        public static void Process(ProcessDef process)
+        public static void Process(ProcessDec process)
         {
             if (GlobalStatus != Status.Idle)
             {
@@ -236,7 +236,7 @@ namespace Ghi
                             continue;
                         }
 
-                        ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
+                        ComponentDec component = ComponentDecDict[methodParameters[i].ParameterType];
                         if (component != null && component.singleton)
                         {
                             if (system.permissions)
@@ -303,18 +303,18 @@ namespace Ghi
                                     continue;
                                 }
 
-                                ComponentDef component = ComponentDefDict[methodParameters[i].ParameterType];
+                                ComponentDec component = ComponentDecDict[methodParameters[i].ParameterType];
                                 if (component != null && !component.singleton)
                                 {
                                     if (system.permissions)
                                     {
                                         var permission = system.iterate.TryGetValue(component);
-                                        if (permission == SystemDef.Permissions.None)
+                                        if (permission == SystemDec.Permissions.None)
                                         {
                                             Dbg.Err($"{system}: Attempted to use component {component} without any permission");
                                         }
 
-                                        if (permission == SystemDef.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
+                                        if (permission == SystemDec.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
                                         {
                                             Dbg.Wrn($"{system}: Using read-only component {component} without \"_ro\" suffix");
                                         }
@@ -365,7 +365,7 @@ namespace Ghi
                 // but we'll do it anyway
             }
 
-            ComponentDefDict.Clear();
+            ComponentDecDict.Clear();
             ComponentIndexDict.Clear();
             Entities.Clear();
             PhaseEndActions.Clear();

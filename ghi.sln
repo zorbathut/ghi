@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ghi", "src/ghi.csproj", "{1
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ghi-test", "test/ghi-test.csproj", "{D8AD8D37-2ED5-4396-B693-77A06FC46A69}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "def", "lib/def/src/def.csproj", "{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dec", "lib/dec/src/dec.csproj", "{82AB0EDB-ADC7-4A7E-AA15-04345A9ED753}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

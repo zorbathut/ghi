@@ -7,13 +7,13 @@ namespace Ghi.Test
     [TestFixture]
     public class Iteration : Base
     {
-        [Def.StaticReferences]
-        public static class Defs
+        [Dec.StaticReferences]
+        public static class Decs
         {
-            static Defs() { Def.StaticReferences.Initialized(); }
+            static Decs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static ProcessDef TestProcess;
-            public static EntityDef EntityModel;
+            public static ProcessDec TestProcess;
+            public static EntityDec EntityModel;
         }
 
         public static class IterationSystem
@@ -25,42 +25,43 @@ namespace Ghi.Test
 	    [Test]
 	    public void Basic()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>IterationSystem</type>
                         <iterate>
                             <Component>ReadWrite</Component>
                         </iterate>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
-            Environment.Add(new Entity(Defs.EntityModel));
-            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
 
             IterationSystem.Executions = 0;
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(2, IterationSystem.Executions);
 
             Entity[] entities = Environment.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
@@ -70,48 +71,49 @@ namespace Ghi.Test
 
         public static class IterationAddSystem
         {
-            public static void Execute(Entity simple) { Environment.Add(new Entity(Defs.EntityModel)); }
+            public static void Execute(Entity simple) { Environment.Add(new Entity(Decs.EntityModel)); }
         }
 
         [Test]
 	    public void Addition()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>IterationAddSystem</type>
                         <iterate>
                             <Component>ReadWrite</Component>
                         </iterate>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
-            Environment.Add(new Entity(Defs.EntityModel));
-            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
 
             Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(4, Environment.List.Count());
         }
 
@@ -123,42 +125,43 @@ namespace Ghi.Test
         [Test]
 	    public void Removal()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""Component"">
+                <Decs>
+                    <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""EntityModel"">
+                    <EntityDec decName=""EntityModel"">
                         <components>
                             <li>Component</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""TestSystem"">
+                    <SystemDec decName=""TestSystem"">
                         <type>IterationRemoveSystem</type>
                         <iterate>
                             <Component>ReadWrite</Component>
                         </iterate>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
-            Environment.Add(new Entity(Defs.EntityModel));
-            Environment.Add(new Entity(Defs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
+            Environment.Add(new Entity(Decs.EntityModel));
 
             Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(0, Environment.List.Count());
         }
 
@@ -166,14 +169,14 @@ namespace Ghi.Test
         // ----
         // This tests for a specific rather bizarre indexing issue involving using the wrong index. I doubt this exact bug will happen again, but, hey, extra validation.
 
-        [Def.StaticReferences]
+        [Dec.StaticReferences]
         public static class IterationIndexDefs
         {
-            static IterationIndexDefs() { Def.StaticReferences.Initialized(); }
+            static IterationIndexDefs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static EntityDef IterationIndexEntityA;
-            public static EntityDef IterationIndexEntityB;
-            public static ProcessDef IterationIndexProcess;
+            public static EntityDec IterationIndexEntityA;
+            public static EntityDec IterationIndexEntityB;
+            public static ProcessDec IterationIndexProcess;
         }
 
         public static class IterationIndexSystemA
@@ -191,50 +194,51 @@ namespace Ghi.Test
         [Test]
 	    public void IterationIndex()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(IterationIndexDefs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(IterationIndexDefs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""ComponentA"">
+                <Decs>
+                    <ComponentDec decName=""ComponentA"">
                         <type>SimpleComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <ComponentDef defName=""ComponentB"">
+                    <ComponentDec decName=""ComponentB"">
                         <type>StringComponent</type>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <EntityDef defName=""IterationIndexEntityA"">
+                    <EntityDec decName=""IterationIndexEntityA"">
                         <components>
                             <li>ComponentA</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <EntityDef defName=""IterationIndexEntityB"">
+                    <EntityDec decName=""IterationIndexEntityB"">
                         <components>
                             <li>ComponentB</li>
                         </components>
-                    </EntityDef>
+                    </EntityDec>
 
-                    <SystemDef defName=""IterationIndexSystemA"">
+                    <SystemDec decName=""IterationIndexSystemA"">
                         <type>IterationIndexSystemA</type>
                         <iterate>
                             <ComponentA>ReadWrite</ComponentA>
                         </iterate>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <SystemDef defName=""IterationIndexSystemB"">
+                    <SystemDec decName=""IterationIndexSystemB"">
                         <type>IterationIndexSystemB</type>
                         <iterate>
                             <ComponentB>ReadWrite</ComponentB>
                         </iterate>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""IterationIndexProcess"">
+                    <ProcessDec decName=""IterationIndexProcess"">
                         <order>
                             <li>IterationIndexSystemA</li>
                             <li>IterationIndexSystemB</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 

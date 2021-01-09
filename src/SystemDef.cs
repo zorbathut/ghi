@@ -3,7 +3,7 @@ namespace Ghi
     using System;
     using System.Collections.Generic;
 
-    public class SystemDef : Def.Def
+    public class SystemDec : Dec.Dec
     {
         public Type type;
 
@@ -15,9 +15,9 @@ namespace Ghi
         }
 
         public bool permissions = true;
-        public Dictionary<ComponentDef, Permissions> iterate = new Dictionary<ComponentDef, Permissions>();
-        public Dictionary<ComponentDef, Permissions> full = new Dictionary<ComponentDef, Permissions>();
-        public Dictionary<ComponentDef, Permissions> singleton = new Dictionary<ComponentDef, Permissions>();
+        public Dictionary<ComponentDec, Permissions> iterate = new Dictionary<ComponentDec, Permissions>();
+        public Dictionary<ComponentDec, Permissions> full = new Dictionary<ComponentDec, Permissions>();
+        public Dictionary<ComponentDec, Permissions> singleton = new Dictionary<ComponentDec, Permissions>();
 
         // Cached values derived at startup; used to allow or disallow accesses
         internal bool[] accessibleSingletonsRO;
@@ -27,28 +27,25 @@ namespace Ghi
         internal bool[] accessibleComponentsIterateRO;
         internal bool[] accessibleComponentsIterateRW;
 
-        public override IEnumerable<string> ConfigErrors()
+        public override void ConfigErrors(Action<string> reporter)
         {
-            foreach (var err in base.ConfigErrors())
-            {
-                yield return err;
-            }
+            base.ConfigErrors(reporter);
 
             if (type == null)
             {
-                yield return "No defined type";
+                reporter("No defined type");
             }
 
             foreach (var kvp in singleton)
             {
                 if (!kvp.Key.singleton)
                 {
-                    yield return $"Non-singleton component {kvp.Key} referenced in singleton list";
+                    reporter($"Non-singleton component {kvp.Key} referenced in singleton list");
                 }
 
                 if (kvp.Key.immutable && kvp.Value == Permissions.ReadWrite)
                 {
-                    yield return $"Read-write permission given for immutable component {kvp.Key}";
+                    reporter($"Read-write permission given for immutable component {kvp.Key}");
                 }
             }
 
@@ -56,12 +53,12 @@ namespace Ghi
             {
                 if (kvp.Key.singleton)
                 {
-                    yield return $"Singleton component {kvp.Key} referenced in full list";
+                    reporter($"Singleton component {kvp.Key} referenced in full list");
                 }
 
                 if (kvp.Key.immutable && kvp.Value == Permissions.ReadWrite)
                 {
-                    yield return $"Read-write permission given for immutable component {kvp.Key}";
+                    reporter($"Read-write permission given for immutable component {kvp.Key}");
                 }
             }
 
@@ -69,30 +66,27 @@ namespace Ghi
             {
                 if (kvp.Key.singleton)
                 {
-                    yield return $"Singleton component {kvp.Key} referenced in iteration list";
+                    reporter($"Singleton component {kvp.Key} referenced in iteration list");
                 }
 
                 if (kvp.Key.immutable && kvp.Value == Permissions.ReadWrite)
                 {
-                    yield return $"Read-write permission given for immutable component {kvp.Key}";
+                    reporter($"Read-write permission given for immutable component {kvp.Key}");
                 }
             }
         }
         
-        public override IEnumerable<string> PostLoad()
+        public override void PostLoad(Action<string> reporter)
         {
-            foreach (var err in base.PostLoad())
-            {
-                yield return err;
-            }
+            base.PostLoad(reporter);
 
             // Generate accessibility bitmasks
-            accessibleSingletonsRO = new bool[Def.Database<ComponentDef>.Count];
-            accessibleSingletonsRW = new bool[Def.Database<ComponentDef>.Count];
-            accessibleComponentsFullRO = new bool[Def.Database<ComponentDef>.Count];
-            accessibleComponentsFullRW = new bool[Def.Database<ComponentDef>.Count];
-            accessibleComponentsIterateRO = new bool[Def.Database<ComponentDef>.Count];
-            accessibleComponentsIterateRW = new bool[Def.Database<ComponentDef>.Count];
+            accessibleSingletonsRO = new bool[Dec.Database<ComponentDec>.Count];
+            accessibleSingletonsRW = new bool[Dec.Database<ComponentDec>.Count];
+            accessibleComponentsFullRO = new bool[Dec.Database<ComponentDec>.Count];
+            accessibleComponentsFullRW = new bool[Dec.Database<ComponentDec>.Count];
+            accessibleComponentsIterateRO = new bool[Dec.Database<ComponentDec>.Count];
+            accessibleComponentsIterateRW = new bool[Dec.Database<ComponentDec>.Count];
 
             if (singleton != null)
             {
@@ -143,7 +137,7 @@ namespace Ghi
             }
 
             // always allow immutable singleton access
-            foreach (var component in Def.Database<ComponentDef>.List)
+            foreach (var component in Dec.Database<ComponentDec>.List)
             {
                 if (component.singleton && component.immutable)
                 {

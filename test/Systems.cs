@@ -6,12 +6,12 @@ namespace Ghi.Test
     [TestFixture]
     public class Systems : Base
     {
-        [Def.StaticReferences]
-        public static class Defs
+        [Dec.StaticReferences]
+        public static class Decs
         {
-            static Defs() { Def.StaticReferences.Initialized(); }
+            static Decs() { Dec.StaticReferencesAttribute.Initialized(); }
 
-            public static ProcessDef TestProcess;
+            public static ProcessDec TestProcess;
         }
 
         public static class NullSystem
@@ -23,26 +23,27 @@ namespace Ghi.Test
 	    [Test]
 	    public void Null()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { typeof(Defs) });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <SystemDef defName=""TestSystem"">
+                <Decs>
+                    <SystemDec decName=""TestSystem"">
                         <type>NullSystem</type>
-                    </SystemDef>
+                    </SystemDec>
 
-                    <ProcessDef defName=""TestProcess"">
+                    <ProcessDec decName=""TestProcess"">
                         <order>
                             <li>TestSystem</li>
                         </order>
-                    </ProcessDef>
-                </Defs>
+                    </ProcessDec>
+                </Decs>
             ");
             parser.Finish();
 
             Environment.Startup();
 
             NullSystem.Executions = 0;
-            Environment.Process(Defs.TestProcess);
+            Environment.Process(Decs.TestProcess);
             Assert.AreEqual(1, NullSystem.Executions);
 	    }
     }

@@ -9,18 +9,19 @@ namespace Ghi.Test
 	    [Test]
 	    public void Singleton()
 	    {
-	        var parser = new Def.Parser(explicitStaticRefs: new System.Type[] { });
+            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { } };
+            var parser = new Dec.Parser();
             parser.AddString(@"
-                <Defs>
-                    <ComponentDef defName=""SingComponent"">
+                <Decs>
+                    <ComponentDec decName=""SingComponent"">
                         <type>SimpleComponent</type>
                         <singleton>true</singleton>
-                    </ComponentDef>
+                    </ComponentDec>
 
-                    <ComponentDef defName=""EntComponent"">
+                    <ComponentDec decName=""EntComponent"">
                         <type>StringComponent</type>
-                    </ComponentDef>
-                </Defs>
+                    </ComponentDec>
+                </Decs>
             ");
             parser.Finish();
 

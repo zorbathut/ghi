@@ -24,13 +24,15 @@ namespace Ghi.Test
 
             Ghi.Environment.Clear();
 
-            Def.Database.Clear();
+            Dec.Database.Clear();
 
             handlingWarnings = false;
             handledWarning = false;
 
             handlingErrors = false;
             handledError = false;
+
+            Dec.Config.UsingNamespaces = new string[] { "Ghi", "Ghi.Test", TestContext.CurrentContext.Test.ClassName };
         }
 
         private bool handlingWarnings = false;
@@ -42,7 +44,7 @@ namespace Ghi.Test
         [OneTimeSetUp]
         public void PrepHooks()
         {
-            Def.Config.WarningHandler = str => {
+            Dec.Config.WarningHandler = str => {
                 System.Diagnostics.Debug.Print(str);
                 Console.WriteLine(str);
 
@@ -57,7 +59,7 @@ namespace Ghi.Test
                 }
             };
 
-            Def.Config.ErrorHandler = str => {
+            Dec.Config.ErrorHandler = str => {
                 System.Diagnostics.Debug.Print(str);
                 Console.WriteLine(str);
 
@@ -73,9 +75,11 @@ namespace Ghi.Test
                 }
             };
 
-            Def.Config.ExceptionHandler = e => {
-                Def.Config.ErrorHandler(e.ToString());
+            Dec.Config.ExceptionHandler = e => {
+                Dec.Config.ErrorHandler(e.ToString());
             };
+
+            Dec.Config.UsingNamespaces = new string[] { "Ghi", "Ghi.Test" };
         }
 
         protected void ExpectWarnings(Action action)
