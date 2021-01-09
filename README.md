@@ -1,3 +1,3 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/0gr3i5g5rgo14r3n?svg=true)](https://ci.appveyor.com/project/BenRogWilhelm/ghi)
+[![Build status](https://img.shields.io/github/workflow/status/zorbathut/ghi/Test/master)](https://github.com/zorbathut/ghi/actions?query=workflow%3ATest+branch%3Amaster)
 
-I need to write a readme, but I haven't done so yet.
+This is an ECS built on top of [http://github.com/zorbathut/dec](Dec). It is highly experimental and unpolished. It is not recommended for use for anyone besides me.
