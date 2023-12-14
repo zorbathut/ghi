@@ -25,9 +25,9 @@ namespace Ghi.Test
 	    [Test]
 	    public void Basic()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
@@ -77,9 +77,9 @@ namespace Ghi.Test
         [Test]
 	    public void Addition()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
@@ -125,9 +125,9 @@ namespace Ghi.Test
         [Test]
 	    public void Removal()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
@@ -194,9 +194,9 @@ namespace Ghi.Test
         [Test]
 	    public void IterationIndex()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(IterationIndexDefs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(IterationIndexDefs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""ComponentA"">
                         <type>SimpleComponent</type>

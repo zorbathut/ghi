@@ -2,6 +2,7 @@ namespace Ghi.Test
 {
     using NUnit.Framework;
     using System;
+    using System.Reflection;
 
     public class SimpleComponent
     {
@@ -80,6 +81,11 @@ namespace Ghi.Test
             };
 
             Dec.Config.UsingNamespaces = new string[] { "Ghi", "Ghi.Test" };
+        }
+
+        public static void UpdateTestParameters(Dec.Config.UnitTestParameters parameters)
+        {
+            typeof(Dec.Config).GetField("TestParameters", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, parameters);
         }
 
         protected void ExpectWarnings(Action action)

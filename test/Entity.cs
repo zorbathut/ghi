@@ -25,9 +25,9 @@ namespace Ghi.Test
 	    [Test]
 	    public void Creation()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
@@ -64,9 +64,9 @@ namespace Ghi.Test
         [Test]
         public void Inactive()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs), typeof(EntityProcessTemplateDefs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs), typeof(EntityProcessTemplateDefs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -104,9 +104,9 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponent()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -132,9 +132,9 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentDupe()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -158,9 +158,9 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentInvalid()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -184,9 +184,9 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentWrong()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -219,9 +219,9 @@ namespace Ghi.Test
         [Test]
         public void ExplicitComponentDerived()
         {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""EntityComponent"">
                         <type>SimpleComponent</type>
@@ -247,9 +247,9 @@ namespace Ghi.Test
         [Test]
 	    public void ToStringNonexistent()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>
@@ -273,9 +273,9 @@ namespace Ghi.Test
         [Test]
 	    public void ToStringExistent()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Component"">
                         <type>SimpleComponent</type>

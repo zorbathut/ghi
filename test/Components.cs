@@ -33,9 +33,9 @@ namespace Ghi.Test
         [Test]
 	    public void Subclass()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Defs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Defs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""ComponentA"">
                         <type>SubclassDerived</type>

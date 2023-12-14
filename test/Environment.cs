@@ -9,9 +9,9 @@ namespace Ghi.Test
 	    [Test]
 	    public void Singleton()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""SingComponent"">
                         <type>SimpleComponent</type>

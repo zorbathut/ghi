@@ -23,9 +23,9 @@ namespace Ghi.Test
 	    [Test]
 	    public void Singleton()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -59,9 +59,9 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonPermissions()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -91,9 +91,9 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonROSuffix()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -135,9 +135,9 @@ namespace Ghi.Test
         [Test]
 	    public void SingletonROValid()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -193,9 +193,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRw()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -229,9 +229,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwRo()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -265,9 +265,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwNo()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -298,9 +298,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRoRw()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -334,9 +334,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRoRo()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -370,9 +370,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRoNo()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -403,9 +403,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRwIm()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
@@ -437,9 +437,9 @@ namespace Ghi.Test
         [Test]
 	    public void PermissionsRoIm()
 	    {
-            Dec.Config.TestParameters = new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } };
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
-            parser.AddString(@"
+            parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
                     <ComponentDec decName=""Singleton"">
                         <type>SimpleComponent</type>
