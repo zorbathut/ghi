@@ -1,3 +1,16 @@
+# VS local directory
 .vs
-*/bin
-*/obj
+
+# Rider local directory
+.idea
+
+# User settings
+*.csproj.user
+*.sln.DotSettings.user
+
+# Built assets
+**/bin
+**/obj
+
+# Code coverage
+lcov.*.info
