@@ -72,8 +72,6 @@ namespace Ghi
             Processing,
         }
         private Status status = Status.Idle;
-        private SystemDec activeSystem = null;
-        private Entity activeEntity = new();
 
         // Phase-end deferral
         internal class EntityDeferred
@@ -423,6 +421,12 @@ namespace Ghi
 
         public void Process(ProcessDec process)
         {
+            if (Current.Value != this && Current.Value != null)
+            {
+                Dbg.Wrn("Started Environment.Process with a different Environment active; this is probably a mistake");
+            }
+            using var scope = new Scope(this);
+
             if (status != Status.Idle)
             {
                 Dbg.Err($"Trying to run process while the world is in {status} state; should be {Status.Idle} state");
@@ -445,22 +449,11 @@ namespace Ghi
             {
                 try
                 {
-                    activeSystem = system;
-                    if (activeSystem == null)
-                    {
-                        Dbg.Err("Missing system!");
-                        continue;
-                    }
-
                     {
                         //using var p = Prof.Sample(name: system.DecName);
 
                         system.process(tranches, singletons);
                     }
-
-                    // clean up everything, even the things that should have already been cleaned up, just in case
-                    activeSystem = null;
-                    activeEntity = default;
 
                     status = Status.Idle;
 
@@ -489,8 +482,6 @@ namespace Ghi
             // make sure we're not actively doing things
             Assert.AreEqual(status, Status.Idle);
             Assert.AreEqual(phaseEndActions.Count, 0);
-            Assert.IsNull(activeSystem);
-            Assert.IsNull(activeEntity);
 
             recorder.Record(ref tranches, "tranches");
             recorder.Record(ref entityLookup, "entityLookup");

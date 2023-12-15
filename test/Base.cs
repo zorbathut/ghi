@@ -1,17 +1,29 @@
+using Dec;
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
     using System;
     using System.Reflection;
 
-    public class SimpleComponent
+    public class SimpleComponent : IRecordable
     {
         public int number;
+
+        public void Record(Dec.Recorder recorder)
+        {
+            recorder.Record(ref number, "number");
+        }
     }
 
-    public class StringComponent
+    public class StringComponent : IRecordable
     {
         public string str;
+
+        public void Record(Dec.Recorder recorder)
+        {
+            recorder.Record(ref str, "str");
+        }
     }
 
     [TestFixture]
@@ -39,6 +51,13 @@ namespace Ghi.Test
 
         private bool handlingErrors = false;
         private bool handledError = false;
+
+        public enum EnvironmentMode
+        {
+            Standard,
+            ReadWrite,
+            Cloned,
+        }
 
         [OneTimeSetUp]
         public void PrepHooks()
@@ -127,6 +146,39 @@ namespace Ghi.Test
             }
 
             Assert.IsTrue(excepted);
+        }
+
+        public void ProcessEnvMode(Ghi.Environment env, EnvironmentMode mode, Action<Ghi.Environment> test)
+        {
+            switch (mode)
+            {
+                case EnvironmentMode.Standard:
+                    test(env);
+                    break;
+
+                case EnvironmentMode.ReadWrite:
+                {
+                    var envText = Dec.Recorder.Write(env);
+                    var envDupe = Dec.Recorder.Read<Ghi.Environment>(envText);
+                    using (var scope = new Ghi.Environment.Scope(envDupe))
+                    {
+                        test(envDupe);
+                    }
+
+                    break;
+                }
+
+                case EnvironmentMode.Cloned:
+                {
+                    var envDupe = Dec.Recorder.Clone(env);
+                    using (var scope = new Ghi.Environment.Scope(envDupe))
+                    {
+                        test(envDupe);
+                    }
+
+                    break;
+                }
+            }
         }
     }
 }

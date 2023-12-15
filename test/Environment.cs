@@ -8,7 +8,7 @@ namespace Ghi.Test
     public class EnvironmentTest : Base
     {
 	    [Test]
-	    public void Singleton()
+	    public void Singleton([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { } });
             var parser = new Dec.Parser();
@@ -30,12 +30,15 @@ namespace Ghi.Test
             var env = new Environment();
             using var envActive = new Environment.Scope(env);
 
-            var simp = env.Singleton<SimpleComponent>();
-            Assert.IsNotNull(simp);
+            ProcessEnvMode(env, envMode, env =>
+            {
+                var simp = env.Singleton<SimpleComponent>();
+                Assert.IsNotNull(simp);
 
-            StringComponent str = null;
-            ExpectErrors(() => str = env.Singleton<StringComponent>());
-            Assert.IsNull(str);
-	    }
+                StringComponent str = null;
+                ExpectErrors(() => str = env.Singleton<StringComponent>());
+                Assert.IsNull(str);
+            });
+        }
     }
 }

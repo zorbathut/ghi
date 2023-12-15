@@ -24,7 +24,7 @@ namespace Ghi.Test
         }
 
 	    [Test]
-	    public void Basic()
+	    public void Basic([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
@@ -60,13 +60,16 @@ namespace Ghi.Test
             env.Add(Decs.EntityModel);
             env.Add(Decs.EntityModel);
 
-            IterationSystem.Executions = 0;
-            env.Process(Decs.TestProcess);
-            Assert.AreEqual(2, IterationSystem.Executions);
+            ProcessEnvMode(env, envMode, env =>
+            {
+                IterationSystem.Executions = 0;
+                env.Process(Decs.TestProcess);
+                Assert.AreEqual(2, IterationSystem.Executions);
 
-            Entity[] entities = env.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
-            Assert.AreEqual(1, entities[0].Component<SimpleComponent>().number);
-            Assert.AreEqual(2, entities[1].Component<SimpleComponent>().number);
+                Entity[] entities = env.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
+                Assert.AreEqual(1, entities[0].Component<SimpleComponent>().number);
+                Assert.AreEqual(2, entities[1].Component<SimpleComponent>().number);
+            });
         }
 
         public static class IterationAddSystem
@@ -75,7 +78,7 @@ namespace Ghi.Test
         }
 
         [Test]
-	    public void Addition()
+	    public void Addition([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
@@ -111,9 +114,12 @@ namespace Ghi.Test
             env.Add(Decs.EntityModel);
             env.Add(Decs.EntityModel);
 
-            Assert.AreEqual(2, env.List.Count());
-            env.Process(Decs.TestProcess);
-            Assert.AreEqual(4, env.List.Count());
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.AreEqual(2, env.List.Count());
+                env.Process(Decs.TestProcess);
+                Assert.AreEqual(4, env.List.Count());
+            });
         }
 
         public static class IterationRemoveSystem
@@ -122,7 +128,7 @@ namespace Ghi.Test
         }
 
         [Test]
-	    public void Removal()
+	    public void Removal([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
@@ -158,9 +164,12 @@ namespace Ghi.Test
             env.Add(Decs.EntityModel);
             env.Add(Decs.EntityModel);
 
-            Assert.AreEqual(2, env.List.Count());
-            env.Process(Decs.TestProcess);
-            Assert.AreEqual(0, env.List.Count());
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.AreEqual(2, env.List.Count());
+                env.Process(Decs.TestProcess);
+                Assert.AreEqual(0, env.List.Count());
+            });
         }
 
         // IterationIndex test
@@ -190,7 +199,7 @@ namespace Ghi.Test
         }
 
         [Test]
-	    public void IterationIndex()
+	    public void IterationIndex([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(IterationIndexDefs) } });
             var parser = new Dec.Parser();
@@ -241,11 +250,17 @@ namespace Ghi.Test
             env.Add(IterationIndexDefs.IterationIndexEntityA);
             env.Add(IterationIndexDefs.IterationIndexEntityB);
 
-            env.Process(IterationIndexDefs.IterationIndexProcess);
+            IterationIndexSystemA.Touched.Clear();
+            IterationIndexSystemB.Touched.Clear();
 
-            Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
-            Assert.AreEqual(1, IterationIndexSystemB.Touched.Count);
-            Assert.AreEqual(2, Enumerable.Union(IterationIndexSystemA.Touched, IterationIndexSystemB.Touched).Count());
+            ProcessEnvMode(env, envMode, env =>
+            {
+                env.Process(IterationIndexDefs.IterationIndexProcess);
+
+                Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
+                Assert.AreEqual(1, IterationIndexSystemB.Touched.Count);
+                Assert.AreEqual(2, Enumerable.Union(IterationIndexSystemA.Touched, IterationIndexSystemB.Touched).Count());
+            });
         }
     }
 }

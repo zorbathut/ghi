@@ -1,3 +1,5 @@
+using Dec;
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -15,23 +17,29 @@ namespace Ghi.Test
             public static EntityDec EntityModelB;
         }
 
-        public class SubclassBase
+        public class SubclassBase : IRecordable
         {
-
+            public virtual void Record(Dec.Recorder recorder) { }
         }
 
         public class SubclassDerived : SubclassBase
         {
-
+            public override void Record(Dec.Recorder recorder)
+            {
+                base.Record(recorder);
+            }
         }
 
         public class SubclassDerivedAlternate : SubclassBase
         {
-
+            public override void Record(Dec.Recorder recorder)
+            {
+                base.Record(recorder);
+            }
         }
 
         [Test]
-	    public void Subclass()
+	    public void Subclass([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Defs) } });
             var parser = new Dec.Parser();
@@ -66,10 +74,13 @@ namespace Ghi.Test
             using var envActive = new Environment.Scope(env);
 
             var entityA = env.Add(Defs.EntityModelA);
-            Assert.AreSame(entityA.Component<SubclassBase>(), entityA.Component<SubclassDerived>());
-
             var entityB = env.Add(Defs.EntityModelB);
-            ExpectErrors(() => entityB.Component<SubclassBase>());
-	    }
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.AreSame(entityA.Component<SubclassBase>(), entityA.Component<SubclassDerived>());
+                ExpectErrors(() => entityB.Component<SubclassBase>());
+            });
+        }
     }
 }

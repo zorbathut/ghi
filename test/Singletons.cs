@@ -22,7 +22,7 @@ namespace Ghi.Test
         }
 
 	    [Test]
-	    public void Singleton()
+	    public void Singleton([Values] EnvironmentMode envMode)
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
             var parser = new Dec.Parser();
@@ -50,10 +50,13 @@ namespace Ghi.Test
             var env = new Environment();
             using var envActive = new Environment.Scope(env);
 
-            SingletonSystem.Executions = 0;
-            env.Process(Decs.TestProcess);
-            Assert.AreEqual(1, SingletonSystem.Executions);
-            Assert.AreEqual(15, env.Singleton<SimpleComponent>().number);
-	    }
+            ProcessEnvMode(env, envMode, env =>
+            {
+                SingletonSystem.Executions = 0;
+                env.Process(Decs.TestProcess);
+                Assert.AreEqual(1, SingletonSystem.Executions);
+                Assert.AreEqual(15, env.Singleton<SimpleComponent>().number);
+            });
+        }
     }
 }
