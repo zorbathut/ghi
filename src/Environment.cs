@@ -434,6 +434,11 @@ namespace Ghi
             return (T)singletons[singletonLookup[typeof(T)]];
         }
 
+        public T SingletonRO<T>()
+        {
+            return Singleton<T>();
+        }
+
         public void Process(ProcessDec process)
         {
             if (Current.Value != this && Current.Value != null)

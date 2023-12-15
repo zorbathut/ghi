@@ -67,6 +67,11 @@ namespace Ghi
             return (T)result;
         }
 
+        public T ComponentRO<T>()
+        {
+            return Component<T>();
+        }
+
         public T TryComponent<T>()
         {
             var env = Environment.Current.Value;
@@ -95,7 +100,12 @@ namespace Ghi
             return (T)result;
         }
 
-        public string ToString()
+        public T TryComponentRO<T>()
+        {
+            return TryComponent<T>();
+        }
+
+        public override string ToString()
         {
             if (Environment.EntityToString != null)
             {
