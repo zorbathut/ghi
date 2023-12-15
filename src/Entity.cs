@@ -3,181 +3,71 @@ namespace Ghi
     using System;
     using System.Linq;
 
-    public class Entity
+    public struct Entity : Dec.IRecordable
     {
-        internal EntityDec dec;
-        internal readonly object[] components;
-        internal bool active;
+        internal int id;
+        internal long gen; // 32-bit gives us 2.1 years, and someone is gonna want to run a server longer than that
 
-        public Entity(EntityDec template) : this(template, null) { }
+        private Environment.EntityDeferred deferred;
 
-        public Entity(EntityDec template, params object[] insertions)
+        public Entity()
         {
-            dec = template;
-            components = new object[Dec.Database<ComponentDec>.Count];
-
-            if (insertions != null)
-            {
-                foreach (var element in insertions)
-                {
-                    // we could certainly cache the result of this if we wanted it to be faster
-                    Type matching = element.GetType();
-                    int idx = dec.componentIndexDict.TryGetValue(matching, Environment.COMPONENTINDEX_MISSING);
-                    while (idx == Environment.COMPONENTINDEX_MISSING && matching.BaseType != null)
-                    {
-                        matching = matching.BaseType;
-                        idx = dec.componentIndexDict.TryGetValue(matching, Environment.COMPONENTINDEX_MISSING);
-                    }
-
-                    if (idx == Environment.COMPONENTINDEX_MISSING || idx == Environment.COMPONENTINDEX_AMBIGUOUS || !Dec.Database<ComponentDec>.List[idx].type.IsAssignableFrom(element.GetType()))
-                    {
-                        Dbg.Err($"Attempted construction with non-component type {element.GetType()} when initializing {dec}");
-                        continue;
-                    }
-
-                    if (!dec.components.Any(c => c.index == idx))
-                    {
-                        Dbg.Err($"Received invalid entity component parameter type {element.GetType()} when initializing {dec}");
-                        continue;
-                    }
-
-                    if (components[idx] != null)
-                    {
-                        Dbg.Err($"Received duplicate entity component parameters {components[idx]} and {element} when initializing {dec}");
-                    }
-
-                    components[idx] = element;
-                }
-            }
-
-            foreach (var component in dec.components)
-            {
-                if (components[component.index] == null)
-                {
-                    components[component.index] = Activator.CreateInstance(component.type);
-                }
-            }
+            this.id = 0;
+            this.gen = 0;
+            this.deferred = null;
         }
-        
-        public bool HasComponent<T>()
+        internal Entity(Environment.EntityDeferred deferred)
         {
-            return dec.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING) >= 0;
+            this.id = 0;
+            this.gen = 0;
+            this.deferred = deferred;
+        }
+        internal Entity(int id, long gen)
+        {
+            this.id = id;
+            this.gen = gen;
+            this.deferred = null;
         }
 
-        public bool HasComponent(Type type)
+        private void Resolve()
         {
-            return dec.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING) >= 0;
+            if (deferred != null && deferred.entity.gen != 0)
+            {
+                id = deferred.entity.id;
+                gen = deferred.entity.gen;
+                deferred = null;
+            }
         }
 
         public T Component<T>()
         {
-            int index = dec.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING);
-            if (index == Environment.COMPONENTINDEX_MISSING)
+            Resolve();
+
+            var env = Environment.Current.Value;
+            if (env == null)
             {
-                string err = $"Invalid attempt to access non-component type {typeof(T)}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                Dbg.Err($"Attempted to get entity while env is unavailable");
+                return default;
             }
 
-            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
+            (var dec, var tranche, var index) = env.Get(this);
+            if (dec == null)
             {
-                string err = $"Invalid attempt to access ambiguous type {typeof(T)} from entity {dec}";
-                Dbg.Err(err);
-                throw new AmbiguityException(err);
+                Dbg.Err($"Attempted to get dead entity {this}");
+                return default;
             }
 
-            if (active && Environment.ActiveSystem != null && Environment.ActiveSystem.permissions && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
+            // I don't like that this boxes
+            var result = dec.GetComponentFrom(typeof(T), tranche, index);
+            if (result == null)
             {
-                string err = $"Invalid attempt to access component {typeof(T)} in read-write mode from within system {Environment.ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                return default;
             }
 
-            return (T)components[index];
+            return (T)result;
         }
 
-        public object Component(Type type)
-        {
-            int index = dec.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING);
-            if (index == Environment.COMPONENTINDEX_MISSING)
-            {
-                string err = $"Invalid attempt to access non-component type {type}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
-            {
-                string err = $"Invalid attempt to access ambiguous type {type} from entity {dec}";
-                Dbg.Err(err);
-                throw new AmbiguityException(err);
-            }
-
-            if (active && Environment.ActiveSystem != null && Environment.ActiveSystem.permissions && !Environment.ActiveSystem.accessibleComponentsFullRW[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRW[index]))
-            {
-                string err = $"Invalid attempt to access component {type} in read-write mode from within system {Environment.ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            return components[index];
-        }
-
-        public T ComponentRO<T>()
-        {
-            int index = dec.componentIndexDict.TryGetValue(typeof(T), Environment.COMPONENTINDEX_MISSING);
-            if (index == Environment.COMPONENTINDEX_MISSING)
-            {
-                string err = $"Invalid attempt to access non-component type {typeof(T)}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
-            {
-                string err = $"Invalid attempt to access ambiguous type {typeof(T)} from entity {dec}";
-                Dbg.Err(err);
-                throw new AmbiguityException(err);
-            }
-
-            if (active && Environment.ActiveSystem != null && Environment.ActiveSystem.permissions && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
-            {
-                string err = $"Invalid attempt to access component {typeof(T)} in read-only mode from within system {Environment.ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            return (T)components[index];
-        }
-
-        public object ComponentRO(Type type)
-        {
-            int index = dec.componentIndexDict.TryGetValue(type, Environment.COMPONENTINDEX_MISSING);
-            if (index == Environment.COMPONENTINDEX_MISSING)
-            {
-                string err = $"Invalid attempt to access non-component type {type}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            if (index == Environment.COMPONENTINDEX_AMBIGUOUS)
-            {
-                string err = $"Invalid attempt to access ambiguous type {type} from entity {dec}";
-                Dbg.Err(err);
-                throw new AmbiguityException(err);
-            }
-
-            if (active && Environment.ActiveSystem != null && Environment.ActiveSystem.permissions && !Environment.ActiveSystem.accessibleComponentsFullRO[index] && !(Environment.ActiveEntity == this && Environment.ActiveSystem.accessibleComponentsIterateRO[index]))
-            {
-                string err = $"Invalid attempt to access component {type} in read-only mode from within system {Environment.ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            return components[index];
-        }
-
-        public override string ToString()
+        public string ToString()
         {
             if (Environment.EntityToString != null)
             {
@@ -185,8 +75,17 @@ namespace Ghi
             }
             else
             {
-                return base.ToString();
+                return "[Entity]";
             }
+        }
+
+        public void Record(Dec.Recorder recorder)
+        {
+            Resolve();
+            Assert.IsTrue(deferred == null);
+
+            recorder.Record(ref id, "id");
+            recorder.Record(ref gen, "gen");
         }
     }
 }

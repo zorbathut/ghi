@@ -1,3 +1,4 @@
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -25,12 +26,15 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            var simp = Environment.Singleton<SimpleComponent>();
+            var simp = env.Singleton<SimpleComponent>();
             Assert.IsNotNull(simp);
 
-            var str = Environment.Singleton<StringComponent>();
+            StringComponent str = null;
+            ExpectErrors(() => str = env.Singleton<StringComponent>());
             Assert.IsNull(str);
 	    }
     }

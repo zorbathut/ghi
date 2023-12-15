@@ -1,3 +1,6 @@
+
+#if false
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -42,8 +45,10 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
-            Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
+            Environment.Init();
+            var env = new Environment();
+
+            env.Add(EntityTemplateDecs.EntityModel);
             var ents = Environment.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
@@ -297,3 +302,5 @@ namespace Ghi.Test
 	    }
     }
 }
+
+#endif

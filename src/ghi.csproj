@@ -7,5 +7,5 @@
   <ItemGroup>
     <ProjectReference Include="..\lib\dec\src\dec.csproj" />
   </ItemGroup>
-  
+
 </Project>

@@ -1,381 +1,502 @@
+
+using Dec;
+
 namespace Ghi
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
+    using System.Data.Common;
+
     using System.Linq;
 
-    public static class Environment
+    public class Environment : Dec.IRecordable
     {
-        internal const int COMPONENTINDEX_MISSING = -1;
-        internal const int COMPONENTINDEX_AMBIGUOUS = -2;
+        public static System.Threading.ThreadLocal<Environment> Current = new();
+        public struct Scope : IDisposable
+        {
+            private Environment old;
+            private Environment current;
+            public Scope(Environment env)
+            {
+                old = Current.Value;
+                Current.Value = env;
+                current = env;
+            }
 
-        // Init status, config
+            public void Dispose()
+            {
+                Assert.AreSame(Current.Value, current);
+                Current.Value = old;
+            }
+        }
+
+        internal struct Tranche : Dec.IRecordable
+        {
+            public List<Entity> entries;
+            public IList[] components;
+
+            public void Record(Dec.Recorder recorder)
+            {
+                recorder.Record(ref entries, "entries");
+                recorder.Record(ref components, "components");
+            }
+        }
+        private Tranche[] tranches;
+
+        private struct EntityLookup : Dec.IRecordable
+        {
+            public Ghi.EntityDec dec;
+            public int index;
+            public int gen;
+
+            public void Record(Dec.Recorder recorder)
+            {
+                recorder.Record(ref dec, "dec");
+                recorder.Record(ref index, "index");
+                recorder.Record(ref gen, "gen");
+            }
+        }
+        private List<EntityLookup> entityLookup = new();
+        private List<int> entityFreeList = new();
+
+        private static List<Ghi.EntityDec> indexToEntityDec;
+
+        private object[] singletons;
+        private Dictionary<Type, int> singletonLookup = new();
+
+        // Status
         private enum Status
         {
-            Uninitialized,
             Idle,
             Processing,
         }
-        private static Status GlobalStatus = Status.Uninitialized;
+        private Status status = Status.Idle;
+        private SystemDec activeSystem = null;
+        private Entity activeEntity = new();
+
+        // Phase-end deferral
+        internal class EntityDeferred
+        {
+            public Entity entity;
+        }
+        private List<Action> phaseEndActions = new();
+
+        // Config
         internal static Func<Entity, string> EntityToString = null;
 
-        // Parsed dec config data
-        internal static readonly Dictionary<Type, ComponentDec> ComponentDecDict = new Dictionary<Type, ComponentDec>();
-        internal static readonly Dictionary<Type, int> ComponentIndexDict = new Dictionary<Type, int>();
-
-        // Entity list
-        private static readonly HashSet<Entity> Entities = new HashSet<Entity>();
-        private static object[] Singletons;
-
-        // Working space
-        private static readonly List<Action> PhaseEndActions = new List<Action>();
-
-        internal static SystemDec ActiveSystem;
-        internal static Entity ActiveEntity;
-
-        public static int Count
+        public int Count
         {
             get
             {
-                return Entities.Count;
+                return tranches.Select(t => t.entries.Count).Sum();
             }
         }
 
-        public static IEnumerable<Entity> List
+        public IEnumerable<Entity> List
         {
             get
             {
-                return Entities;
+                return tranches.SelectMany(t => t.entries);
             }
         }
 
-        public static void Startup(Func<Entity, string> toString = null)
+        public static void Init()
         {
-            if (GlobalStatus != Status.Uninitialized)
+            indexToEntityDec = Dec.Database<Ghi.EntityDec>.List.OrderBy(dec => dec.DecName).ToList();
+            foreach((var dec, int i) in indexToEntityDec.Select((dec, i) => (dec, i)))
             {
-                Dbg.Err($"Environment starting up while the world is in {GlobalStatus} state; should be {Status.Uninitialized} state");
+                dec.index = i;
             }
 
-            EntityToString = toString;
+            // cache some data we can use
+            var allEntities = Dec.Database<EntityDec>.List.OrderBy(dec => dec.index).ToArray();
+            var allComponents = Dec.Database<ComponentDec>.List.OrderBy(cd => cd.DecName).ToArray();
+            var allSingletons = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
 
-            foreach (var dec in Dec.Database<ComponentDec>.List)
+            // set up SystemDec processes
+            foreach (var dec in Dec.Database<SystemDec>.List)
             {
-                if (ComponentDecDict.ContainsKey(dec.type))
+                dec.process = (tranches, singletons) =>
                 {
-                    Dbg.Err("Found two duplicate ComponentDec's with the same type");
-                }
+                    var method = dec.method;
+                    var parameters = method.GetParameters();
 
-                ComponentDecDict[dec.type] = dec;
-                ComponentIndexDict[dec.type] = dec.index;
+                    {
+                        // accumulate our entire match DB
+                        var parameterDirectMatches = parameters
+                            .Select(param => allComponents
+                                .Select((c, i) => ( c, i ))
+                                .Where(c => param.ParameterType.IsAssignableFrom(c.c.type))
+                                .ToArray())
+                            .ToArray();
+
+                        // first, see if this can be mapped to all-singleton
+                        if (parameterDirectMatches.All(matches => matches.Length == 1 && matches[0].c.singleton))
+                        {
+                            // it can!
+                            // somewhat surprised tbqh
+                            object[] args = new object[parameters.Length];
+                            for (int i = 0; i < parameters.Length; ++i)
+                            {
+                                args[i] = singletons[
+                                    allSingletons.FirstIndexOf(singleton =>
+                                        singleton == parameterDirectMatches[i][0].c)];
+                            }
+
+                            // done; if we're unambiguously all singleton, then we can't possibly have non-singleton items, can we!
+                            method.Invoke(null, args);
+                            return;
+                        }
+                        else if (parameterDirectMatches.Any(matches => matches.Length > 1))
+                        {
+                            Dbg.Err("Ambiguity!");
+                        }
+                    }
+
+                    bool found = false;
+
+                    // for each tranche . . .
+                    for (int i = 0; i < allEntities.Length; ++i)
+                    {
+                        // see if we can find an unambiguous mapping, including all singletons and every one of our component types
+                        var availableComponents = allSingletons.Concat(allEntities[i].components).ToArray();
+                        var parameterTrancheMatches = parameters
+                            .Select(param => availableComponents
+                                .Select((c, i) => (c.type, i))
+                                .Concat(Enumerable.Repeat((typeof(Entity), -1), 1))
+                                .Where(c => param.ParameterType.IsAssignableFrom(c.Item1))
+                                .Select(c => c.Item2)
+                                .ToArray())
+                            .ToArray();
+
+                        if (parameterTrancheMatches.All(matches => matches.Length == 1))
+                        {
+                            // we have a match!
+                            found = true;
+
+                            // our singletons are first, followed by possible components, so we need to map these up as appropriate
+                            object[] args = new object[parameters.Length];
+
+                            // as we do this, we build a remap array for us to rapidly remap things
+                            List<(int from, int to)> remapsWorking = new List<(int from, int to)>();
+                            for (int j = 0; j < parameters.Length; ++j)
+                            {
+                                if (parameterTrancheMatches[j][0] == -1)
+                                {
+                                    // this is Entity
+                                    remapsWorking.Add((-1, j));
+                                }
+                                else
+                                if (parameterTrancheMatches[j][0] < singletons.Length)
+                                {
+                                    // this is a singleton
+                                    args[j] = singletons[parameterTrancheMatches[j][0]];
+                                }
+                                else
+                                {
+                                    // this is a component
+                                    remapsWorking.Add(( parameterTrancheMatches[j][0] - singletons.Length, j ));
+                                }
+                            }
+
+                            // compile this down for efficiency
+                            var remaps = remapsWorking.ToArray();
+
+                            // do it
+                            for (int index = 0; index < tranches[i].entries.Count; ++index)
+                            {
+                                // remap the components
+                                for (int j = 0; j < remaps.Length; ++j)
+                                {
+                                    int from = remaps[j].from;
+                                    if (from == -1)
+                                    {
+                                        args[remaps[j].to] = tranches[i].entries[index];
+                                    }
+                                    else
+                                    {
+                                        args[remaps[j].to] = tranches[i].components[remaps[j].from][index];
+                                    }
+                                }
+
+                                // invoke the method
+                                method.Invoke(null, args);
+                            }
+                        }
+                        else if (parameterTrancheMatches.Any(matches => matches.Length > 1))
+                        {
+                            Dbg.Err("Ambiguity!");
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        Dbg.Err("No matches :(");
+                    }
+                };
             }
-
-            Singletons = new object[Dec.Database<ComponentDec>.Count];
-            foreach (var dec in Dec.Database<ComponentDec>.List)
-            {
-                if (dec.singleton)
-                {
-                    Singletons[dec.index] = Activator.CreateInstance(dec.type);
-                }
-            }
-
-            GlobalStatus = Status.Idle;
         }
 
-        public static void Add(Entity entity)
+        public Environment()
         {
-            if (GlobalStatus == Status.Uninitialized)
+            // I'm not worried about singleton inheritance yet
+            var singletonTypes = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
+            singletonLookup = singletonTypes.Select((cd, i) => (cd.type, i)).ToDictionary(x => x.type, x => x.i);
+
+            singletons = new object[singletonTypes.Length];
+            foreach ((var dec, var i) in singletonTypes.Select((cd, i) => (cd, i)))
             {
-                Dbg.Err($"Attempting to add an entity while the world is in {GlobalStatus} state; should not be {Status.Uninitialized} state");
-                return;
+                singletons[i] = Activator.CreateInstance(dec.type);
             }
 
-            if (entity.active)
+            // create tranches
+            tranches = new Tranche[Dec.Database<EntityDec>.List.Length];
+            foreach ((var index, var entity) in Dec.Database<EntityDec>.List.OrderBy(ed => ed.DecName).Select((ed, i) => (i, ed)))
             {
-                Dbg.Err($"Attempting to add an entity that is already active");
-                return;
+                tranches[index].entries = new List<Entity>();
+                tranches[index].components = new IList[entity.components.Count];
+                for (int i = 0; i < entity.components.Count; ++i)
+                {
+                    tranches[index].components[i] = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(entity.components[i].type));
+                }
             }
 
-            if (GlobalStatus == Status.Idle)
+            // create status
+            status = Status.Idle;
+        }
+
+        public Entity Add(EntityDec dec)
+        {
+            switch (status)
             {
-                Entities.Add(entity);
-                entity.active = true;
+                case Status.Idle:
+                    return AddNow(dec);
+                case Status.Processing:
+                    var entityDeferred = new EntityDeferred();
+                    phaseEndActions.Add(() =>
+                    {
+                        entityDeferred.entity = AddNow(dec);
+                    });
+                    return new Entity(entityDeferred);
+                default:
+                    Assert.IsTrue(false);
+                    return default;
+            }
+        }
+
+        private Entity AddNow(EntityDec dec)
+        {
+            var tranche = tranches[dec.index];
+            var trancheId = tranche.entries.Count();
+
+            for (int i = 0; i < dec.components.Count; ++i)
+            {
+                tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
+            }
+
+            // now allocate the actual entity ID
+            int id;
+            if (entityFreeList.Count > 0)
+            {
+                id = entityFreeList[entityFreeList.Count - 1];
+                entityFreeList.RemoveAt(entityFreeList.Count - 1);
+                entityLookup[id] = new EntityLookup() { dec = dec, index = trancheId, gen = entityLookup[id].gen + 1 };
             }
             else
             {
-                PhaseEndActions.Add(() => Add(entity));
+                id = entityLookup.Count;
+                entityLookup.Add(new EntityLookup() { dec = dec, index = trancheId, gen = 1 });
+            }
+
+            var entity = new Entity(id, entityLookup[id].gen);
+            tranche.entries.Add(entity);
+
+            return entity;
+        }
+
+        public void Remove(Entity entity)
+        {
+            switch (status)
+            {
+                case Status.Idle:
+                    RemoveNow(entity);
+                    break;
+                case Status.Processing:
+                    phaseEndActions.Add(() =>
+                    {
+                        RemoveNow(entity);
+                    });
+                    break;
+                default:
+                    Assert.IsTrue(false);
+                    break;
             }
         }
 
-        public static void Remove(Entity entity)
+        private void RemoveNow(Entity entity)
         {
-            if (GlobalStatus == Status.Uninitialized)
+            (EntityLookup lookup, int id) = LookupFromEntity(entity);
+            if (id == -1)
             {
-                Dbg.Err($"Attempting to add an entity while the world is in {GlobalStatus} state; should not be {Status.Uninitialized} state");
+                Dbg.Err($"Attempted to remove entity {entity} that doesn't exist");
                 return;
             }
 
-            if (!entity.active)
-            {
-                Dbg.Err($"Attempting to remove an entity that is already inactive");
-                return;
-            }
+            // we want to keep each tranche contiguous
 
-            if (GlobalStatus == Status.Idle)
+            var tranche = tranches[lookup.dec.index];
+            if (lookup.index == tranche.entries.Count - 1)
             {
-                Entities.Remove(entity);
-                entity.active = false;
+                // if we're removing from the end, we just remove it; easy!
+                tranche.entries.RemoveAt(lookup.index);
+
+                // also, the same for every list
+                for (int i = 0; i < tranche.components.Length; ++i)
+                {
+                    tranche.components[i].RemoveAt(lookup.index);
+                }
             }
             else
             {
-                PhaseEndActions.Add(() => Remove(entity));
+                // if we're removing from the center, we move the end item into the removed item's place
+                // three cheers for O(1)
+                tranche.entries[lookup.index] = tranche.entries[tranche.entries.Count - 1];
+                tranche.entries.RemoveAt(tranche.entries.Count - 1);
+
+                // also, the same for every list
+                for (int i = 0; i < tranche.components.Length; ++i)
+                {
+                    tranche.components[i][lookup.index] = tranche.components[i][tranche.entries.Count - 1];
+                    tranche.components[i].RemoveAt(tranche.components[i].Count - 1);
+                }
+
+                // now patch up the entity lookup table for the item we just swapped in
+                var replacedId = tranche.entries[lookup.index].id;
+                entityLookup[replacedId] = new EntityLookup() { dec = lookup.dec, index = lookup.index, gen = entityLookup[replacedId].gen };
             }
+
+            // wipe the entity we deleted from the lookup table
+            // important that we bump the generation to ensure we never repeat generations!
+            entityLookup[id] = new EntityLookup() { dec = null, index = -1, gen = entityLookup[id].gen + 1 };
+            entityFreeList.Add(id);
         }
 
-        public static T Singleton<T>()
+        private (EntityLookup lookup, int id) LookupFromEntity(Entity entity)
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
-            if (index == -1)
+            if (entity.id < 0 || entity.id >= entityLookup.Count)
             {
-                string err = $"Invalid attempt to access non-component type {typeof(T)}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                return (new EntityLookup(), -1);
             }
 
-            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
+            // compare generations; if this isn't us, it's not real
+            var lookup = entityLookup[entity.id];
+            if (lookup.gen != entity.gen)
             {
-                string err = $"Invalid attempt to access singleton {typeof(T)} in read-write mode from within system {ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                return (new EntityLookup(), -1);
             }
 
-            return (T)Singletons[index];
+            return (lookup, entity.id);
         }
 
-        public static object Singleton(Type type)
+        internal (EntityDec dec, Tranche tranche, int index) Get(Entity entity)
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
-            if (index == -1)
+            var (lookup, id) = LookupFromEntity(entity);
+            if (id == -1)
             {
-                string err = $"Invalid attempt to access non-component type {type}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                return (null, default, -1);
             }
 
-            if (ActiveSystem != null && !ActiveSystem.accessibleSingletonsRW[index])
-            {
-                string err = $"Invalid attempt to access singleton {type} in read-write mode from within system {ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            return Singletons[index];
+            return (lookup.dec, tranches[lookup.dec.index], lookup.index);
         }
 
-        public static T SingletonRO<T>()
+        public T Singleton<T>()
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(typeof(T), -1);
-            if (index == -1)
+            if (!singletonLookup.ContainsKey(typeof(T)))
             {
-                string err = $"Invalid attempt to access non-component type {typeof(T)}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                Dbg.Err($"Attempted to access singleton {typeof(T)} that doesn't exist");
+                return default;
             }
 
-            if (ActiveSystem != null && ActiveSystem.permissions && !ActiveSystem.accessibleSingletonsRO[index])
-            {
-                string err = $"Invalid attempt to access singleton {typeof(T)} in read-only mode from within system {ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
-            }
-
-            return (T)Singletons[index];
+            return (T)singletons[singletonLookup[typeof(T)]];
         }
 
-        public static object SingletonRO(Type type)
+        public void Process(ProcessDec process)
         {
-            int index = Environment.ComponentIndexDict.TryGetValue(type, -1);
-            if (index == -1)
+            if (status != Status.Idle)
             {
-                string err = $"Invalid attempt to access non-component type {type}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                Dbg.Err($"Trying to run process while the world is in {status} state; should be {Status.Idle} state");
+            }
+            status = Status.Processing;
+
+            if (process == null)
+            {
+                Dbg.Err("Process is null!");
+                return;
             }
 
-            if (ActiveSystem != null && ActiveSystem.permissions && !ActiveSystem.accessibleSingletonsRO[index])
+            if (process.order == null)
             {
-                string err = $"Invalid attempt to access singleton {type} in read-only mode from within system {ActiveSystem}";
-                Dbg.Err(err);
-                throw new PermissionException(err);
+                Dbg.Err("Process Order is null!");
+                return;
             }
-
-            return Singletons[index];
-        }
-
-        public static void Process(ProcessDec process)
-        {
-            if (GlobalStatus != Status.Idle)
-            {
-                Dbg.Err($"Trying to run process while the world is in {GlobalStatus} state; should be {Status.Idle} state");
-            }
-            GlobalStatus = Status.Processing;
 
             foreach (var system in process.order)
             {
                 try
                 {
-                    ActiveSystem = system;
-
-                    var executeMethod = system.type.GetMethod("Execute", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                    var methodParameters = executeMethod.GetParameters();
-
-                    var activeParameters = new object[methodParameters.Length];
-                    for (int i = 0; i < methodParameters.Length; ++i)
+                    activeSystem = system;
+                    if (activeSystem == null)
                     {
-                        if (methodParameters[i].ParameterType == typeof(Ghi.Entity))
-                        {
-                            continue;
-                        }
-
-                        ComponentDec component = ComponentDecDict[methodParameters[i].ParameterType];
-                        if (component != null && component.singleton)
-                        {
-                            if (system.permissions)
-                            {
-                                if (!system.accessibleSingletonsRO[component.index])
-                                {
-                                    var err = $"{system}: Attempted to use singleton {component} without any permission";
-                                    Dbg.Err(err);
-                                    throw new PermissionException(err);
-                                }
-
-                                if (!system.accessibleSingletonsRW[component.index] && !methodParameters[i].Name.EndsWith("_ro"))
-                                {
-                                    Dbg.Wrn($"{system}: Using read-only singleton {component} without \"_ro\" suffix");
-                                }
-                            }
-
-                            activeParameters[i] = Singletons[component.index];
-                        }
+                        Dbg.Err("Missing system!");
+                        continue;
                     }
 
-                    if (system.iterate.Count == 0)
                     {
-                        // No-iteration pathway
-                        try
-                        {
-                            executeMethod.Invoke(null, activeParameters);
-                        }
-                        catch (Exception e)
-                        {
-                            Dbg.Ex(e);
-                        }
+                        //using var p = Prof.Sample(name: system.DecName);
+
+                        system.process(tranches, singletons);
                     }
-                    else
+
+                    // clean up everything, even the things that should have already been cleaned up, just in case
+                    activeSystem = null;
+                    activeEntity = default;
+
+                    status = Status.Idle;
+
+                    if (phaseEndActions.Count != 0)
                     {
-                        // Entity-iteration pathway
+                        var actions = new List<Action>(phaseEndActions);
+                        phaseEndActions.Clear();
 
-                        // Doing this once per run is silly, it should be precalculated
-                        int[] requiredIndices = system.iterate.Keys.Select(comp => comp.index).OrderBy(x => x).ToArray();
-                        foreach (var entity in List)
+                        foreach (var action in actions)
                         {
-                            ActiveEntity = entity;
-
-                            bool valid = true;
-                            for (int k = 0; k < requiredIndices.Length; ++k)
-                            {
-                                if (entity.components[requiredIndices[k]] == null)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-
-                            if (!valid)
-                            {
-                                continue;
-                            }
-
-                            for (int i = 0; i < methodParameters.Length; ++i)
-                            {
-                                if (methodParameters[i].ParameterType == typeof(Entity))
-                                {
-                                    activeParameters[i] = entity;
-                                    continue;
-                                }
-
-                                ComponentDec component = ComponentDecDict[methodParameters[i].ParameterType];
-                                if (component != null && !component.singleton)
-                                {
-                                    if (system.permissions)
-                                    {
-                                        var permission = system.iterate.TryGetValue(component);
-                                        if (permission == SystemDec.Permissions.None)
-                                        {
-                                            Dbg.Err($"{system}: Attempted to use component {component} without any permission");
-                                        }
-
-                                        if (permission == SystemDec.Permissions.ReadOnly && !methodParameters[i].Name.EndsWith("_ro"))
-                                        {
-                                            Dbg.Wrn($"{system}: Using read-only component {component} without \"_ro\" suffix");
-                                        }
-                                    }
-
-                                    activeParameters[i] = entity.components[component.index];
-                                }
-                            }
-
-                            try
-                            {
-                                executeMethod.Invoke(null, activeParameters);
-                            }
-                            catch (Exception e)
-                            {
-                                Dbg.Ex(e);
-                            }
+                            action();
                         }
 
-                        ActiveEntity = null;
+                        Assert.IsEmpty(phaseEndActions);
                     }
-                    
                 }
                 catch (Exception e)
                 {
                     Dbg.Ex(e);
                 }
             }
-
-            // clean up everything, even the things that should have already been cleaned up, just in case
-            ActiveSystem = null;
-            ActiveEntity = null;
-
-            GlobalStatus = Status.Idle;
-
-            foreach (var action in PhaseEndActions)
-            {
-                action();
-            }
-            PhaseEndActions.Clear();
         }
 
-        public static void Clear()
+        public void Record(Dec.Recorder recorder)
         {
-            if (GlobalStatus == Status.Processing)
-            {
-                Dbg.Err($"Attempting to clear the environment while the world is in {GlobalStatus} state; should not be {Status.Processing} state");
-                // but we'll do it anyway
-            }
+            // make sure we're not actively doing things
+            Assert.AreEqual(status, Status.Idle);
+            Assert.AreEqual(phaseEndActions.Count, 0);
+            Assert.IsNull(activeSystem);
+            Assert.IsNull(activeEntity);
 
-            ComponentDecDict.Clear();
-            ComponentIndexDict.Clear();
-            Entities.Clear();
-            PhaseEndActions.Clear();
-
-            Singletons = null;
-
-            ActiveSystem = null;
-            ActiveEntity = null;
-
-            GlobalStatus = Status.Uninitialized;
+            recorder.Record(ref tranches, "tranches");
+            recorder.Record(ref entityLookup, "entityLookup");
+            recorder.Record(ref entityFreeList, "entityFreeList");
+            recorder.Record(ref singletons, "singletons");
+            recorder.Record(ref singletonLookup, "singletonLookup");
         }
     }
 }

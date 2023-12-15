@@ -1,3 +1,4 @@
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -41,9 +42,6 @@ namespace Ghi.Test
 
                     <SystemDec decName=""TestSystem"">
                         <type>IterationSystem</type>
-                        <iterate>
-                            <Component>ReadWrite</Component>
-                        </iterate>
                     </SystemDec>
 
                     <ProcessDec decName=""TestProcess"">
@@ -55,23 +53,25 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            Environment.Add(new Entity(Decs.EntityModel));
-            Environment.Add(new Entity(Decs.EntityModel));
+            env.Add(Decs.EntityModel);
+            env.Add(Decs.EntityModel);
 
             IterationSystem.Executions = 0;
-            Environment.Process(Decs.TestProcess);
+            env.Process(Decs.TestProcess);
             Assert.AreEqual(2, IterationSystem.Executions);
 
-            Entity[] entities = Environment.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
+            Entity[] entities = env.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
             Assert.AreEqual(1, entities[0].Component<SimpleComponent>().number);
             Assert.AreEqual(2, entities[1].Component<SimpleComponent>().number);
         }
 
         public static class IterationAddSystem
         {
-            public static void Execute(Entity simple) { Environment.Add(new Entity(Decs.EntityModel)); }
+            public static void Execute(Entity simple) { Environment.Current.Value.Add(Decs.EntityModel); }
         }
 
         [Test]
@@ -93,9 +93,6 @@ namespace Ghi.Test
 
                     <SystemDec decName=""TestSystem"">
                         <type>IterationAddSystem</type>
-                        <iterate>
-                            <Component>ReadWrite</Component>
-                        </iterate>
                     </SystemDec>
 
                     <ProcessDec decName=""TestProcess"">
@@ -107,19 +104,21 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            Environment.Add(new Entity(Decs.EntityModel));
-            Environment.Add(new Entity(Decs.EntityModel));
+            env.Add(Decs.EntityModel);
+            env.Add(Decs.EntityModel);
 
-            Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(Decs.TestProcess);
-            Assert.AreEqual(4, Environment.List.Count());
+            Assert.AreEqual(2, env.List.Count());
+            env.Process(Decs.TestProcess);
+            Assert.AreEqual(4, env.List.Count());
         }
 
         public static class IterationRemoveSystem
         {
-            public static void Execute(Entity simple) { Environment.Remove(simple); }
+            public static void Execute(Entity simple) { Environment.Current.Value.Remove(simple); }
         }
 
         [Test]
@@ -141,9 +140,6 @@ namespace Ghi.Test
 
                     <SystemDec decName=""TestSystem"">
                         <type>IterationRemoveSystem</type>
-                        <iterate>
-                            <Component>ReadWrite</Component>
-                        </iterate>
                     </SystemDec>
 
                     <ProcessDec decName=""TestProcess"">
@@ -155,14 +151,16 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            Environment.Add(new Entity(Decs.EntityModel));
-            Environment.Add(new Entity(Decs.EntityModel));
+            env.Add(Decs.EntityModel);
+            env.Add(Decs.EntityModel);
 
-            Assert.AreEqual(2, Environment.List.Count());
-            Environment.Process(Decs.TestProcess);
-            Assert.AreEqual(0, Environment.List.Count());
+            Assert.AreEqual(2, env.List.Count());
+            env.Process(Decs.TestProcess);
+            Assert.AreEqual(0, env.List.Count());
         }
 
         // IterationIndex test
@@ -182,13 +180,13 @@ namespace Ghi.Test
         public static class IterationIndexSystemA
         {
             public static List<Entity> Touched = new List<Entity>();
-            public static void Execute(Entity entity) { Touched.Add(entity); }
+            public static void Execute(Entity entity, SimpleComponent sc) { Touched.Add(entity); }
         }
 
         public static class IterationIndexSystemB
         {
             public static List<Entity> Touched = new List<Entity>();
-            public static void Execute(Entity entity) { Touched.Add(entity); }
+            public static void Execute(Entity entity, StringComponent sc) { Touched.Add(entity); }
         }
 
         [Test]
@@ -220,16 +218,10 @@ namespace Ghi.Test
 
                     <SystemDec decName=""IterationIndexSystemA"">
                         <type>IterationIndexSystemA</type>
-                        <iterate>
-                            <ComponentA>ReadWrite</ComponentA>
-                        </iterate>
                     </SystemDec>
 
                     <SystemDec decName=""IterationIndexSystemB"">
                         <type>IterationIndexSystemB</type>
-                        <iterate>
-                            <ComponentB>ReadWrite</ComponentB>
-                        </iterate>
                     </SystemDec>
 
                     <ProcessDec decName=""IterationIndexProcess"">
@@ -242,15 +234,17 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            Environment.Add(new Entity(IterationIndexDefs.IterationIndexEntityA));
-            Environment.Add(new Entity(IterationIndexDefs.IterationIndexEntityB));
+            env.Add(IterationIndexDefs.IterationIndexEntityA);
+            env.Add(IterationIndexDefs.IterationIndexEntityB);
 
-            Environment.Process(IterationIndexDefs.IterationIndexProcess);
+            env.Process(IterationIndexDefs.IterationIndexProcess);
 
             Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
-            Assert.AreEqual(1, IterationIndexSystemA.Touched.Count);
+            Assert.AreEqual(1, IterationIndexSystemB.Touched.Count);
             Assert.AreEqual(2, Enumerable.Union(IterationIndexSystemA.Touched, IterationIndexSystemB.Touched).Count());
         }
     }

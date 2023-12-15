@@ -1,3 +1,4 @@
+
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -40,10 +41,12 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             NullSystem.Executions = 0;
-            Environment.Process(Decs.TestProcess);
+            env.Process(Decs.TestProcess);
             Assert.AreEqual(1, NullSystem.Executions);
 	    }
     }

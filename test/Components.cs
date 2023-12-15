@@ -61,13 +61,15 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            var entityA = new Ghi.Entity(Defs.EntityModelA);
+            var entityA = env.Add(Defs.EntityModelA);
             Assert.AreSame(entityA.Component<SubclassBase>(), entityA.Component<SubclassDerived>());
 
-            var entityB = new Ghi.Entity(Defs.EntityModelB);
-            ExpectException(() => entityB.Component<SubclassBase>());
+            var entityB = env.Add(Defs.EntityModelB);
+            ExpectErrors(() => entityB.Component<SubclassBase>());
 	    }
     }
 }

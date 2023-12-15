@@ -23,8 +23,6 @@ namespace Ghi.Test
             // we turn on error handling so that Clear can work even if we're in the wrong mode
             handlingErrors = true;
 
-            Ghi.Environment.Clear();
-
             Dec.Database.Clear();
 
             handlingWarnings = false;
