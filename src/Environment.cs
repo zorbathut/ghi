@@ -154,9 +154,17 @@ namespace Ghi
 
                             return;
                         }
+                        else if (parameterDirectMatches.Any(matches => matches.All(m => !m.c.singleton)))
+                        {
+                            // definitely can't be a singleton match, so we're OK with it
+                        }
                         else if (parameterDirectMatches.Any(matches => matches.Length > 1))
                         {
-                            Dbg.Err("Ambiguity!");
+                            var ambiguity = string.Join("; ", parameters.Zip(parameterDirectMatches, (param, matches) => ( param, matches ))
+                                .Where(x => x.matches.Length > 1)
+                                .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
+
+                            Dbg.Err($"{dec}: Ambiguity in singleton scan! {ambiguity}");
                         }
                     }
 
@@ -239,7 +247,11 @@ namespace Ghi
                         }
                         else if (parameterTrancheMatches.Any(matches => matches.Length > 1))
                         {
-                            Dbg.Err("Ambiguity!");
+                            var ambiguity = string.Join("; ", parameters.Zip(parameterTrancheMatches, (param, matches) => ( param, matches ))
+                                .Where(x => x.matches.Length > 1)
+                                .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.ToString()))}]"));
+
+                            Dbg.Err($"{dec}: Ambiguity in entity scan! {ambiguity}");
                         }
                     }
 
