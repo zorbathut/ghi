@@ -41,8 +41,6 @@ namespace Ghi
 
         public T Component<T>()
         {
-            Resolve();
-
             var env = Environment.Current.Value;
             if (env == null)
             {
@@ -50,10 +48,40 @@ namespace Ghi
                 return default;
             }
 
+            Resolve();
+
             (var dec, var tranche, var index) = env.Get(this);
             if (dec == null)
             {
                 Dbg.Err($"Attempted to get dead entity {this}");
+                return default;
+            }
+
+            // I don't like that this boxes
+            var result = dec.GetComponentFrom(typeof(T), tranche, index);
+            if (result == null)
+            {
+                return default;
+            }
+
+            return (T)result;
+        }
+
+        public T TryComponent<T>()
+        {
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                // yes this is still an error
+                Dbg.Err($"Attempted to get entity while env is unavailable");
+                return default;
+            }
+
+            Resolve();
+
+            (var dec, var tranche, var index) = env.Get(this);
+            if (dec == null)
+            {
                 return default;
             }
 
