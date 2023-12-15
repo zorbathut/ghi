@@ -39,6 +39,26 @@ namespace Ghi
             }
         }
 
+        public bool IsValid()
+        {
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                Dbg.Err($"Attempted to get entity while env is unavailable");
+                return default;
+            }
+
+            Resolve();
+
+            (var dec, var tranche, var index) = env.Get(this);
+            return dec != null;
+        }
+
+        public bool HasComponent<T>()
+        {
+            return ComponentRO<T>() != null;
+        }
+
         public T Component<T>()
         {
             var env = Environment.Current.Value;
