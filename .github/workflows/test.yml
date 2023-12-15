@@ -39,7 +39,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: coverage-${{ matrix.dotnet-version }}
-        path: test/*/TestResults
+        path: test/TestResults
 
   submit_coverage:
     needs: build_and_test
