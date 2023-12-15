@@ -143,7 +143,15 @@ namespace Ghi
                             }
 
                             // done; if we're unambiguously all singleton, then we can't possibly have non-singleton items, can we!
-                            method.Invoke(null, args);
+                            try
+                            {
+                                method.Invoke(null, args);
+                            }
+                            catch (Exception e)
+                            {
+                                Dbg.Ex(e);
+                            }
+
                             return;
                         }
                         else if (parameterDirectMatches.Any(matches => matches.Length > 1))
@@ -219,7 +227,14 @@ namespace Ghi
                                 }
 
                                 // invoke the method
-                                method.Invoke(null, args);
+                                try
+                                {
+                                    method.Invoke(null, args);
+                                }
+                                catch (Exception e)
+                                {
+                                    Dbg.Ex(e);
+                                }
                             }
                         }
                         else if (parameterTrancheMatches.Any(matches => matches.Length > 1))
@@ -447,32 +462,25 @@ namespace Ghi
 
             foreach (var system in process.order)
             {
-                try
                 {
-                    {
-                        //using var p = Prof.Sample(name: system.DecName);
+                    //using var p = Prof.Sample(name: system.DecName);
 
-                        system.process(tranches, singletons);
-                    }
-
-                    status = Status.Idle;
-
-                    if (phaseEndActions.Count != 0)
-                    {
-                        var actions = new List<Action>(phaseEndActions);
-                        phaseEndActions.Clear();
-
-                        foreach (var action in actions)
-                        {
-                            action();
-                        }
-
-                        Assert.IsEmpty(phaseEndActions);
-                    }
+                    system.process(tranches, singletons);
                 }
-                catch (Exception e)
+
+                status = Status.Idle;
+
+                if (phaseEndActions.Count != 0)
                 {
-                    Dbg.Ex(e);
+                    var actions = new List<Action>(phaseEndActions);
+                    phaseEndActions.Clear();
+
+                    foreach (var action in actions)
+                    {
+                        action();
+                    }
+
+                    Assert.IsEmpty(phaseEndActions);
                 }
             }
         }
