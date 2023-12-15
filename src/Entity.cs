@@ -56,7 +56,22 @@ namespace Ghi
 
         public bool HasComponent<T>()
         {
-            return ComponentRO<T>() != null;
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                Dbg.Err($"Attempted to get entity while env is unavailable");
+                return false;
+            }
+
+            Resolve();
+
+            (var dec, var tranche, var index) = env.Get(this);
+            if (dec == null)
+            {
+                return false;
+            }
+
+            return dec.HasComponent(typeof(T));
         }
 
         public T Component<T>()
@@ -111,7 +126,7 @@ namespace Ghi
             }
 
             // I don't like that this boxes
-            var result = dec.GetComponentFrom(typeof(T), tranche, index);
+            var result = dec.TryGetComponentFrom(typeof(T), tranche, index);
             if (result == null)
             {
                 return default;
