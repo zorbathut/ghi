@@ -19,10 +19,10 @@ namespace Ghi
             if (!componentGetters.TryGetValue(type, out var getter))
             {
                 // look over our components and see if we have something that makes sense
-                var matches = components.Select(c => (c.type, c.index)).Where(c => type.IsAssignableFrom(c.type)).ToArray();
+                var matches = components.Select((c, i) => (c.type, i)).Where(c => type.IsAssignableFrom(c.type)).ToArray();
                 if (matches.Length == 1)
                 {
-                    var cindex = matches[0].index;
+                    var cindex = matches[0].i;
                     getter = (tranche, index) => tranche.components[cindex][index];
                 }
                 else if (matches.Length == 0)
