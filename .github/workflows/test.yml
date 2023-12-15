@@ -3,20 +3,62 @@ name: Test
 on: [push, pull_request]
 
 jobs:
-  build:
-    runs-on: ubuntu-18.04
-    
+  build_and_test:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet-version: ["6.0"]
     steps:
-    - uses: actions/checkout@v1
-    - name: Checkout submodules
-      run: git submodule update --init --recursive
-    - name: Setup
-      uses: actions/setup-dotnet@v1
+    - uses: actions/checkout@v3
+
+    # This is unnecessary for 6.0 and later, but is still needed for 2.1/3.1.
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '2.1.x'
+        dotnet-version: ${{ matrix.dotnet-version }}.x
+
+    # I used to have a separate build step here
+    # it's hard to implement now because not every package type supports every framework
+    # todo: this, at some point?
+    - name: Test
+      run: |
+        dotnet_version=${{ matrix.dotnet-version }}
+        first_digit=${dotnet_version:0:1}
+
+        if [[ $first_digit -lt 5 ]]; then
+            framework="netcoreapp${dotnet_version}"
+        else
+            framework="net${dotnet_version}"
+        fi
+
+        dotnet test -f $framework --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+    - name: Upload coverage files
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-${{ matrix.dotnet-version }}
+        path: test/*/TestResults
+
+  submit_coverage:
+    needs: build_and_test
+    runs-on: ubuntu-22.04
+    steps:
+    # this appears to be needed for some part of the setup process; it's unclear why
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+    - name: Setup tooling
+      run: dotnet tool install -g coveralls.net --version 4.0.1
     - name: Setup environment
       run: dotnet restore
-    - name: Build
-      run: dotnet build
-    - name: Test
-      run: dotnet test --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+    - name: Download all coverage files
+      uses: actions/download-artifact@v3
+    - name: Combine and submit coverage data
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      run: |
+        coverage_files=$(find -name 'TestResults' -type d | xargs -I {} find {} -type f | sed s/^/opencover=/ | sed ':a;N;$!ba;s/\n/;/g')
+        csmacnz.Coveralls --useRelativePaths --multiple -i "$coverage_files" --serviceName github-ci --jobId $GITHUB_RUN_ID --commitId $(git rev-parse HEAD) --commitBranch "${GITHUB_REF:-none}" --commitAuthor "$(git log -1 --pretty=format:'%an')" --commitEmail "$(git log -1 --pretty=format:'%ae')" --commitMessage "$(git log -1 --pretty='%s')" --repoToken $COVERALLS_REPO_TOKEN || true
