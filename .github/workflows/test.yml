@@ -47,6 +47,8 @@ jobs:
     steps:
     # this appears to be needed for some part of the setup process; it's unclear why
     - uses: actions/checkout@v3
+      with:
+        submodules: True
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v3
