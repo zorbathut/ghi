@@ -28,13 +28,13 @@ namespace Ghi.Test
             var parser = new Dec.Parser();
             parser.AddString(Dec.Parser.FileType.Xml, @"
                 <Decs>
-                    <ComponentDec decName=""SimpleComponent"">
-                        <type>SimpleComponent</type>
+                    <ComponentDec decName=""StringComponent"">
+                        <type>StringComponent</type>
                     </ComponentDec>
 
                     <EntityDec decName=""EntityModel"">
                         <components>
-                            <li>SimpleComponent</li>
+                            <li>StringComponent</li>
                         </components>
                     </EntityDec>
                 </Decs>
@@ -46,30 +46,70 @@ namespace Ghi.Test
             using var envActive = new Environment.Scope(env);
 
             var entityA = env.Add(RemovalDecs.EntityModel);
-            Assert.IsNotNull(entityA.TryComponent<SimpleComponent>());
-            Assert.IsNotNull(entityA.Component<SimpleComponent>());
+            Assert.IsNotNull(entityA.TryComponent<StringComponent>());
+            Assert.IsNotNull(entityA.Component<StringComponent>());
 
             env.Remove(entityA);
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.IsNull(entityA.TryComponent<SimpleComponent>());
-                ExpectErrors(() => Assert.IsNull(entityA.Component<SimpleComponent>()));
+                Assert.IsNull(entityA.TryComponent<StringComponent>());
+                ExpectErrors(() => Assert.IsNull(entityA.Component<StringComponent>()));
             });
 
             var entityB = env.Add(RemovalDecs.EntityModel);
-            Assert.IsNotNull(entityB.TryComponent<SimpleComponent>());
-            Assert.IsNotNull(entityB.Component<SimpleComponent>());
+            Assert.IsNotNull(entityB.TryComponent<StringComponent>());
+            Assert.IsNotNull(entityB.Component<StringComponent>());
             env.Remove(entityB);
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.IsNull(entityA.TryComponent<SimpleComponent>());
-                Assert.IsNull(entityB.TryComponent<SimpleComponent>());
+                Assert.IsNull(entityA.TryComponent<StringComponent>());
+                Assert.IsNull(entityB.TryComponent<StringComponent>());
 
-                ExpectErrors(() => Assert.IsNull(entityA.Component<SimpleComponent>()));
-                ExpectErrors(() => Assert.IsNull(entityB.Component<SimpleComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityA.Component<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityB.Component<StringComponent>()));
             });
+
+            var entityC = env.Add(RemovalDecs.EntityModel);
+            var entityD = env.Add(RemovalDecs.EntityModel);
+            var entityE = env.Add(RemovalDecs.EntityModel);
+            var entityF = env.Add(RemovalDecs.EntityModel);
+
+            entityC.Component<StringComponent>().str = "C";
+            entityD.Component<StringComponent>().str = "D";
+            entityE.Component<StringComponent>().str = "E";
+            entityF.Component<StringComponent>().str = "F";
+
+            Assert.AreEqual("C", entityC.Component<StringComponent>().str);
+            Assert.AreEqual("D", entityD.Component<StringComponent>().str);
+            Assert.AreEqual("E", entityE.Component<StringComponent>().str);
+            Assert.AreEqual("F", entityF.Component<StringComponent>().str);
+
+            env.Remove(entityD);
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.AreEqual("C", entityC.Component<StringComponent>().str);
+                Assert.IsNull(entityD.TryComponent<StringComponent>());
+                Assert.AreEqual("E", entityE.Component<StringComponent>().str);
+                Assert.AreEqual("F", entityF.Component<StringComponent>().str);
+
+                Assert.AreEqual(env.List.Select(e => e.Component<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E", "F" });
+            });
+
+            env.Remove(entityF);
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.AreEqual("C", entityC.Component<StringComponent>().str);
+                Assert.IsNull(entityD.TryComponent<StringComponent>());
+                Assert.AreEqual("E", entityE.Component<StringComponent>().str);
+                Assert.IsNull(entityF.TryComponent<StringComponent>());
+
+                Assert.AreEqual(env.List.Select(e => e.Component<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E" });
+            });
+
         }
 
         [Dec.StaticReferences]

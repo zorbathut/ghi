@@ -424,14 +424,15 @@ namespace Ghi
             {
                 // if we're removing from the center, we move the end item into the removed item's place
                 // three cheers for O(1)
-                tranche.entries[lookup.index] = tranche.entries[tranche.entries.Count - 1];
-                tranche.entries.RemoveAt(tranche.entries.Count - 1);
+                int endEntry = tranche.entries.Count - 1;
+                tranche.entries[lookup.index] = tranche.entries[endEntry];
+                tranche.entries.RemoveAt(endEntry);
 
                 // also, the same for every list
                 for (int i = 0; i < tranche.components.Length; ++i)
                 {
-                    tranche.components[i][lookup.index] = tranche.components[i][tranche.entries.Count - 1];
-                    tranche.components[i].RemoveAt(tranche.components[i].Count - 1);
+                    tranche.components[i][lookup.index] = tranche.components[i][endEntry];
+                    tranche.components[i].RemoveAt(endEntry);
                 }
 
                 // now patch up the entity lookup table for the item we just swapped in
