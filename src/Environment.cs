@@ -76,7 +76,15 @@ namespace Ghi
         // Phase-end deferral
         internal class EntityDeferred
         {
-            public Entity entity;
+            public EntityDec dec;
+            public Tranche tranche;
+
+            public Entity replacement;
+
+            public (EntityDec dec, Tranche tranche, int index) Get()
+            {
+                return (dec, tranche, 0);
+            }
         }
         private List<Action> phaseEndActions = new();
 
@@ -299,9 +307,26 @@ namespace Ghi
                     return AddNow(dec);
                 case Status.Processing:
                     var entityDeferred = new EntityDeferred();
+                    entityDeferred.dec = dec;
+
+                    var tranche = new Tranche();
+                    tranche.entries = new List<Entity>();
+                    tranche.components = new List<object>[dec.components.Count];
+
+                    // create a new set of components
+                    for (int i = 0; i < dec.components.Count; ++i)
+                    {
+                        // currently not worrying about minmaxing efficiency here
+                        tranche.components[i] = new List<object>();
+                        tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
+                    }
+
+                    // do this late because it's a struct
+                    entityDeferred.tranche = tranche;
+
                     phaseEndActions.Add(() =>
                     {
-                        entityDeferred.entity = AddNow(dec);
+                        entityDeferred.replacement = AddNow(dec, tranche);
                     });
                     return new Entity(entityDeferred);
                 default:
@@ -310,15 +335,28 @@ namespace Ghi
             }
         }
 
-        private Entity AddNow(EntityDec dec)
+        private Entity AddNow(EntityDec dec, Tranche? baseTranche = null)
         {
             var tranche = tranches[dec.index];
             var trancheId = tranche.entries.Count();
 
-            for (int i = 0; i < dec.components.Count; ++i)
+            if (baseTranche == null)
             {
-                tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
+                // create a new set of components
+                for (int i = 0; i < dec.components.Count; ++i)
+                {
+                    tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
+                }
             }
+            else
+            {
+                // splice in existing components
+                for (int i = 0; i < dec.components.Count; ++i)
+                {
+                    tranche.components[i].Add(baseTranche.Value.components[i][0]);
+                }
+            }
+
 
             // now allocate the actual entity ID
             int id;

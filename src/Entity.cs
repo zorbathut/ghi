@@ -21,6 +21,9 @@ namespace Ghi
             this.id = 0;
             this.gen = 0;
             this.deferred = deferred;
+
+            // this data structure gives me a headache
+            this.deferred.tranche.entries.Add(this);
         }
         internal Entity(int id, long gen)
         {
@@ -31,10 +34,10 @@ namespace Ghi
 
         private void Resolve()
         {
-            if (deferred != null && deferred.entity.gen != 0)
+            if (deferred != null && deferred.replacement.gen != 0)
             {
-                id = deferred.entity.id;
-                gen = deferred.entity.gen;
+                id = deferred.replacement.id;
+                gen = deferred.replacement.gen;
                 deferred = null;
             }
         }
@@ -50,7 +53,7 @@ namespace Ghi
 
             Resolve();
 
-            (var dec, var tranche, var index) = env.Get(this);
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
             return dec != null;
         }
 
@@ -65,7 +68,7 @@ namespace Ghi
 
             Resolve();
 
-            (var dec, var tranche, var index) = env.Get(this);
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
             if (dec == null)
             {
                 return false;
@@ -85,7 +88,7 @@ namespace Ghi
 
             Resolve();
 
-            (var dec, var tranche, var index) = env.Get(this);
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
             if (dec == null)
             {
                 Dbg.Err($"Attempted to get dead entity {this}");
@@ -119,7 +122,7 @@ namespace Ghi
 
             Resolve();
 
-            (var dec, var tranche, var index) = env.Get(this);
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
             if (dec == null)
             {
                 return default;
