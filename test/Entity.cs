@@ -1,6 +1,4 @@
 
-#if false
-
 namespace Ghi.Test
 {
     using NUnit.Framework;
@@ -47,9 +45,10 @@ namespace Ghi.Test
 
             Environment.Init();
             var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             env.Add(EntityTemplateDecs.EntityModel);
-            var ents = Environment.List.ToArray();
+            var ents = env.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
             Assert.IsTrue(ents[0].Component<SimpleComponent>() != null);
@@ -59,9 +58,7 @@ namespace Ghi.Test
         {
             public static void Execute()
             {
-                var entity = new Entity(EntityTemplateDecs.EntityModel);
-                Environment.Add(entity);    // We intentionally add it first; we should still be able to muck with it
-
+                var entity = Environment.Current.Value.Add(EntityTemplateDecs.EntityModel);
                 entity.Component<SimpleComponent>().number = 4;
             }
         }
@@ -96,17 +93,19 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
-            Environment.Process(EntityProcessTemplateDefs.TestProcess);
+            env.Process(EntityProcessTemplateDefs.TestProcess);
 
-            var ents = Environment.List.ToArray();
+            var ents = env.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
             Assert.AreEqual(4, ents[0].Component<SimpleComponent>().number);
         }
 
-        [Test]
+        [Test] [Ignore("Explicit components not currently implemented")]
         public void ExplicitComponent()
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -126,15 +125,17 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             var comp = new SimpleComponent();
-            var entity = new Entity(EntityTemplateDecs.EntityModel, comp);
+            //var entity = new Entity(EntityTemplateDecs.EntityModel, comp);
 
-            Assert.AreSame(comp, entity.Component<SimpleComponent>());
+            //Assert.AreSame(comp, entity.Component<SimpleComponent>());
         }
 
-        [Test]
+        [Test] [Ignore("Explicit components not currently implemented")]
         public void ExplicitComponentDupe()
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -154,13 +155,15 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             var comp = new SimpleComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp, comp));
+            //ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp, comp));
         }
 
-        [Test]
+        [Test] [Ignore("Explicit components not currently implemented")]
         public void ExplicitComponentInvalid()
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -180,13 +183,15 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             var comp = new StringComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
+            //ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
         }
 
-        [Test]
+        [Test] [Ignore("Explicit components not currently implemented")]
         public void ExplicitComponentWrong()
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -210,10 +215,12 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             var comp = new StringComponent();
-            ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
+            //ExpectErrors(() => new Entity(EntityTemplateDecs.EntityModel, comp));
         }
 
         public class DerivedComponent : SimpleComponent
@@ -221,7 +228,7 @@ namespace Ghi.Test
 
         }
 
-        [Test]
+        [Test] [Ignore("Explicit components not currently implemented")]
         public void ExplicitComponentDerived()
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -241,12 +248,14 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
 
             var comp = new DerivedComponent();
-            var entity = new Entity(EntityTemplateDecs.EntityModel, comp);
+            //var entity = env.Add(EntityTemplateDecs.EntityModel, comp);
 
-            Assert.AreSame(comp, entity.Component<SimpleComponent>());
+            //Assert.AreSame(comp, entity.Component<SimpleComponent>());
         }
 
         [Test]
@@ -269,13 +278,16 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup();
-            Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
-            var ents = Environment.List.ToArray();
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            env.Add(EntityTemplateDecs.EntityModel);
+            var ents = env.List.ToArray();
             ents[0].ToString(); // we're just checking to make sure it doesn't crash, we actually don't care what it outputs
 	    }
 
-        [Test]
+        [Test] [Ignore("ToString not currently implemented")]
 	    public void ToStringExistent()
 	    {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
@@ -295,12 +307,14 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            Environment.Startup(toString: e => "ToStringTest");
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            /*Environment.Startup(toString: e => "ToStringTest");
             Environment.Add(new Ghi.Entity(EntityTemplateDecs.EntityModel));
             var ents = Environment.List.ToArray();
-            Assert.AreEqual("ToStringTest", ents[0].ToString());
+            Assert.AreEqual("ToStringTest", ents[0].ToString());*/
 	    }
     }
 }
-
-#endif
