@@ -299,12 +299,72 @@ namespace Ghi
             status = Status.Idle;
         }
 
-        public Entity Add(EntityDec dec)
+        private object[] FillComponents(EntityDec dec, object[] providedComponents)
         {
+            bool[] used = null;
+            if (providedComponents != null)
+            {
+                used = new bool[providedComponents.Length];
+            }
+
+            // this is kind of inefficient but I'm just living with the perf hit for the time being
+            var components = new object[dec.components.Count];
+            for (int i = 0; i < dec.components.Count; ++i)
+            {
+                // see if we have a provided component
+                int match = -1;
+
+                if (providedComponents != null)
+                {
+                    for (int j = 0; j < providedComponents.Length; ++j)
+                    {
+                        if (dec.components[i].type.IsAssignableFrom(providedComponents[j].GetType()))
+                        {
+                            if (match == -1)
+                            {
+                                match = j;
+                            }
+                            else
+                            {
+                                Dbg.Err($"Ambiguity in component match for {dec.DecName}; {dec.components[i].type} matches both {providedComponents[match].GetType()} and {providedComponents[j].GetType()}");
+                            }
+                        }
+                    }
+                }
+
+                if (match != -1)
+                {
+                    components[i] = providedComponents[match];
+                    used[match] = true;
+                }
+                else
+                {
+                    components[i] = Activator.CreateInstance(dec.components[i].type);
+                }
+            }
+
+            if (used != null)
+            {
+                for (int i = 0; i < used.Length; ++i)
+                {
+                    if (!used[i])
+                    {
+                        Dbg.Err($"Unused component {providedComponents[i].GetType()} provided for {dec.DecName}");
+                    }
+                }
+            }
+
+            return components;
+        }
+
+        public Entity Add(EntityDec dec, object[] providedComponents = null)
+        {
+            var resultComponents = FillComponents(dec, providedComponents);
+
             switch (status)
             {
                 case Status.Idle:
-                    return AddNow(dec);
+                    return AddNow(dec, resultComponents);
                 case Status.Processing:
                     var entityDeferred = new EntityDeferred();
                     entityDeferred.dec = dec;
@@ -318,7 +378,7 @@ namespace Ghi
                     {
                         // currently not worrying about minmaxing efficiency here
                         tranche.components[i] = new List<object>();
-                        tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
+                        tranche.components[i].Add(resultComponents[i]);
                     }
 
                     // do this late because it's a struct
@@ -326,7 +386,13 @@ namespace Ghi
 
                     phaseEndActions.Add(() =>
                     {
-                        entityDeferred.replacement = AddNow(dec, tranche);
+                        var currentComponents = new object[dec.components.Count];
+                        // copy components back from the tranche
+                        for (int i = 0; i < dec.components.Count; ++i)
+                        {
+                            currentComponents[i] = tranche.components[i][0];
+                        }
+                        entityDeferred.replacement = AddNow(dec, currentComponents);
                     });
                     return new Entity(entityDeferred);
                 default:
@@ -335,28 +401,15 @@ namespace Ghi
             }
         }
 
-        private Entity AddNow(EntityDec dec, Tranche? baseTranche = null)
+        private Entity AddNow(EntityDec dec, object[] components)
         {
             var tranche = tranches[dec.index];
             var trancheId = tranche.entries.Count();
 
-            if (baseTranche == null)
+            for (int i = 0; i < dec.components.Count; ++i)
             {
-                // create a new set of components
-                for (int i = 0; i < dec.components.Count; ++i)
-                {
-                    tranche.components[i].Add(Activator.CreateInstance(dec.components[i].type));
-                }
+                tranche.components[i].Add(components[i]);
             }
-            else
-            {
-                // splice in existing components
-                for (int i = 0; i < dec.components.Count; ++i)
-                {
-                    tranche.components[i].Add(baseTranche.Value.components[i][0]);
-                }
-            }
-
 
             // now allocate the actual entity ID
             int id;
