@@ -112,6 +112,44 @@ namespace Ghi.Test
 
         }
 
+        [Test]
+	    public void RemovalRefs([Values] EnvironmentMode envMode)
+	    {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(RemovalDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""StringComponent"">
+                        <type>StringComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>StringComponent</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entityA = env.Add(RemovalDecs.EntityModel);
+            var refA = EntityComponent<StringComponent>.From(entityA);
+            Assert.IsNotNull(refA.TryGet());
+            Assert.IsNotNull(refA.Get());
+
+            env.Remove(entityA);
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                Assert.IsNull(refA.TryGet());
+                ExpectErrors(() => Assert.IsNull(refA.Get()));
+            });
+        }
+
         [Dec.StaticReferences]
         public static class LiveAdditionDecs
         {

@@ -1,3 +1,4 @@
+
 namespace Ghi
 {
     using System;
@@ -162,6 +163,62 @@ namespace Ghi
 
             recorder.Record(ref id, "id");
             recorder.Record(ref gen, "gen");
+        }
+    }
+
+    public struct EntityComponent<T> : Dec.IRecordable
+    {
+        private Entity entity;
+
+        public EntityComponent()
+        {
+            entity = new Entity();
+        }
+
+        internal EntityComponent(Entity entity)
+        {
+            this.entity = entity;
+        }
+
+        public static EntityComponent<T> From(Entity entity)
+        {
+            return new EntityComponent<T>(entity);
+        }
+
+        public bool IsValid()
+        {
+            // this does IsValid() also
+            return entity.HasComponent<T>();
+        }
+
+        public T Get()
+        {
+            return entity.Component<T>();
+        }
+
+        public T GetRO()
+        {
+            return Get();
+        }
+
+        public T TryGet()
+        {
+            return entity.TryComponent<T>();
+        }
+
+        public T TryGetRO()
+        {
+            return TryGet();
+        }
+
+        public override string ToString()
+        {
+            return entity.ToString();
+        }
+
+        public void Record(Dec.Recorder recorder)
+        {
+            recorder.RecordAsThis(ref entity);
         }
     }
 }
