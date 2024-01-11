@@ -265,7 +265,8 @@ namespace Ghi
 
                     if (!found)
                     {
-                        Dbg.Err("No matches :(");
+                        // this can really be refined more
+                        Dbg.Err($"No entity type matches when attempting to run system {dec}!");
                     }
                 };
             }
