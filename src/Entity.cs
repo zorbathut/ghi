@@ -4,6 +4,7 @@ namespace Ghi
     using System;
     using System.Linq;
 
+    [System.Diagnostics.DebuggerTypeProxy(typeof(DebugView))]
     public struct Entity : Dec.IRecordable
     {
         internal int id;
@@ -164,8 +165,91 @@ namespace Ghi
             recorder.Record(ref id, "id");
             recorder.Record(ref gen, "gen");
         }
+
+        internal enum Status
+        {
+            Empty,
+            EnvUnavailable,
+            Deferred,
+            Active,
+            Deleted,
+        }
+        internal Status GetStatus()
+        {
+            if (id == 0 && gen == 0)
+            {
+                return Status.Empty;
+            }
+
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                return Status.EnvUnavailable;
+            }
+
+            Resolve();
+
+            if (deferred != null)
+            {
+                return Status.Deferred;
+            }
+
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
+            if (dec == null)
+            {
+                return Status.Deleted;
+            }
+
+            return Status.Active;
+        }
+
+        internal class DebugView
+        {
+            private Entity entity;
+
+            public int id;
+            public long gen;
+            public DebugView(Entity entity)
+            {
+                this.entity = entity;
+
+                this.id = entity.id;
+                this.gen = entity.gen;
+            }
+
+            public Entity.Status Status
+            {
+                get
+                {
+                    return entity.GetStatus();
+                }
+            }
+
+            public object[] Components
+            {
+                get
+                {
+                    var env = Environment.Current.Value;
+                    if (env == null)
+                    {
+                        return null;
+                    }
+
+                    entity.Resolve();
+
+                    (var dec, var tranche, var index) = entity.deferred?.Get() ?? env.Get(entity);
+                    if (dec == null)
+                    {
+                        return null;
+                    }
+
+                    return dec.components.Select(c => dec.GetComponentFrom(c.type, tranche, index)).ToArray();
+                }
+            }
+        }
     }
 
+    [System.Diagnostics.DebuggerTypeProxy(typeof(EntityComponent<>.DebugView))]
     public struct EntityComponent<T> : Dec.IRecordable
     {
         private Entity entity;
@@ -219,6 +303,32 @@ namespace Ghi
         public void Record(Dec.Recorder recorder)
         {
             recorder.RecordAsThis(ref entity);
+        }
+
+        internal class DebugView
+        {
+            private EntityComponent<T> component;
+
+            public DebugView(EntityComponent<T> component)
+            {
+                this.component = component;
+            }
+
+            public Entity.Status Status
+            {
+                get
+                {
+                    return component.entity.GetStatus();
+                }
+            }
+
+            public object Component
+            {
+                get
+                {
+                    return component.TryGetRO();
+                }
+            }
         }
     }
 }
