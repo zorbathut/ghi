@@ -544,6 +544,11 @@ namespace Ghi
             return Singleton<T>();
         }
 
+        public T SingletonRW<T>()
+        {
+            return Singleton<T>();
+        }
+
         public void Process(ProcessDec process)
         {
             if (Current.Value != this && Current.Value != null)

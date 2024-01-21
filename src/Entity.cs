@@ -112,6 +112,11 @@ namespace Ghi
             return Component<T>();
         }
 
+        public T ComponentRW<T>()
+        {
+            return Component<T>();
+        }
+
         public T TryComponent<T>()
         {
             var env = Environment.Current.Value;
@@ -141,6 +146,11 @@ namespace Ghi
         }
 
         public T TryComponentRO<T>()
+        {
+            return TryComponent<T>();
+        }
+
+        public T TryComponentRW<T>()
         {
             return TryComponent<T>();
         }
@@ -315,12 +325,22 @@ namespace Ghi
             return Get();
         }
 
+        public T GetRW()
+        {
+            return Get();
+        }
+
         public T TryGet()
         {
             return entity.TryComponent<T>();
         }
 
         public T TryGetRO()
+        {
+            return TryGet();
+        }
+
+        public T TryGetRW()
         {
             return TryGet();
         }
