@@ -157,6 +157,36 @@ namespace Ghi
             }
         }
 
+        public EntityIdentifier GetEntityIdentifier()
+        {
+            Resolve();
+            Assert.IsTrue(deferred == null);
+
+            return new EntityIdentifier(id, gen);
+        }
+
+        // -1 if we're not COW, otherwise a unique value not shared with other COW objects with this EntityIdentifer
+        public long GetEntityRevision()
+        {
+            return -1;
+        }
+
+        public EntityDec GetEntityDec()
+        {
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                // yes this is still an error
+                Dbg.Err($"Attempted to get entity while env is unavailable");
+                return default;
+            }
+
+            Resolve();
+
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
+            return dec;
+        }
+
         public void Record(Dec.Recorder recorder)
         {
             Resolve();
@@ -329,6 +359,28 @@ namespace Ghi
                     return component.TryGetRO();
                 }
             }
+        }
+    }
+
+    public struct EntityIdentifier
+    {
+        private int id;
+        private long gen;
+
+        public EntityIdentifier(int id, long gen)
+        {
+            this.id = id;
+            this.gen = gen;
+        }
+
+        public override int GetHashCode()
+        {
+            return id.GetHashCode() ^ gen.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"[{id}:{gen}]";
         }
     }
 }
