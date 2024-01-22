@@ -58,5 +58,48 @@ namespace Ghi.Test
                 Assert.AreEqual(15, env.Singleton<SimpleComponent>().number);
             });
         }
+
+        public static class SingletonExceptionSystem
+        {
+            public static void Execute(SimpleComponent simple)
+            {
+                throw new System.InvalidOperationException();
+            }
+        }
+
+        [Test]
+        public void SingletonException([Values] EnvironmentMode envMode)
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""Singleton"">
+                        <type>SimpleComponent</type>
+                        <singleton>true</singleton>
+                    </ComponentDec>
+
+                    <SystemDec decName=""TestSystem"">
+                        <type>SingletonExceptionSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                ExpectErrors(() => env.Process(Decs.TestProcess));
+            });
+        }
     }
 }

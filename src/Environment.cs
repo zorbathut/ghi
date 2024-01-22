@@ -1,4 +1,6 @@
 
+using System.Reflection.Emit;
+
 namespace Ghi
 {
     using System;
@@ -126,6 +128,8 @@ namespace Ghi
 
         public static void Init()
         {
+            var DbgEx = typeof(Dbg).GetMethod("Ex", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
             indexToEntityDec = Dec.Database<Ghi.EntityDec>.List.OrderBy(dec => dec.DecName).ToList();
             foreach((var dec, int i) in indexToEntityDec.Select((dec, i) => (dec, i)))
             {
@@ -157,33 +161,35 @@ namespace Ghi
                     {
                         // it can!
                         // somewhat surprised tbqh
-                        int[] singletonIndices = new int[parameters.Length];
+
+                        // build our artificial IL function
+                        var dynamicMethod = new DynamicMethod($"ExecuteSystem{dec.DecName}",
+                            typeof(void),
+                            new Type[] { typeof(Tranche[]), typeof(object[]) },
+                            true);
+                        System.Reflection.Emit.ILGenerator il = dynamicMethod.GetILGenerator();
+
+                        // needs to start and end with the same number of parameters, so let's just do this within the exception block
+                        var ex = il.BeginExceptionBlock();
+
+                        // read all the singletons
                         for (int i = 0; i < parameters.Length; ++i)
                         {
-                            singletonIndices[i] =
-                                allSingletons.FirstIndexOf(singleton =>
-                                    singleton == parameterDirectMatches[i][0].c);
+                            il.Emit(OpCodes.Ldarg_1);
+                            il.Emit(OpCodes.Ldc_I4, allSingletons.FirstIndexOf(singleton => singleton == parameterDirectMatches[i][0].c));
+                            il.Emit(OpCodes.Ldelem_Ref);
                         }
+                        il.Emit(OpCodes.Call, method);
 
-                        // Set up our compact call.
-                        dec.process = (tranches, singletons) =>
-                        {
-                            object[] args = new object[parameters.Length];
-                            for (int i = 0; i < parameters.Length; ++i)
-                            {
-                                args[i] = singletons[singletonIndices[i]];
-                            }
+                        il.BeginCatchBlock(typeof(Exception));
+                        // whoops something went wrong
+                        il.Emit(OpCodes.Call, DbgEx);
+                        il.EndExceptionBlock();
 
-                            // done; if we're unambiguously all singleton, then we can't possibly have non-singleton items, can we!
-                            try
-                            {
-                                method.Invoke(null, args);
-                            }
-                            catch (Exception e)
-                            {
-                                Dbg.Ex(e);
-                            }
-                        };
+                        // and we're done with the singleton-only path!
+                        il.Emit(OpCodes.Ret);
+
+                        dec.process = (Action<Tranche[], object[]>)dynamicMethod.CreateDelegate(typeof(Action<Tranche[], object[]>));
 
                         // NEXT.
                         continue;
