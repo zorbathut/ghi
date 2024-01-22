@@ -1,6 +1,4 @@
 
-using Dec;
-
 namespace Ghi
 {
     using System;
@@ -65,6 +63,25 @@ namespace Ghi
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
 
+        // if someone makes more than 64 bits of Environments then I salute you
+        private static long s_LastUniqueId = 0;
+        private long uniqueId = System.Threading.Interlocked.Increment(ref s_LastUniqueId);
+        public long UniqueId
+        {
+            get
+            {
+                return uniqueId;
+            }
+        }
+
+        public void OnPostClone()
+        {
+            // bump!
+            // this allows our COW structures to recognize that they may now be shared
+            // this effectively locks every existing COW member at its current state for eternity; if it changes it, it'll be by cloning it first
+            uniqueId = System.Threading.Interlocked.Increment(ref s_LastUniqueId);
+        }
+
         // Status
         private enum Status
         {
@@ -123,31 +140,38 @@ namespace Ghi
             // set up SystemDec processes
             foreach (var dec in Dec.Database<SystemDec>.List)
             {
-                dec.process = (tranches, singletons) =>
+                var method = dec.method;
+                var parameters = method.GetParameters();
+
                 {
-                    var method = dec.method;
-                    var parameters = method.GetParameters();
+                    // accumulate our entire match DB
+                    var parameterDirectMatches = parameters
+                        .Select(param => allComponents
+                            .Select((c, i) => ( c, i ))
+                            .Where(c => param.ParameterType.IsAssignableFrom(c.c.type))
+                            .ToArray())
+                        .ToArray();
 
+                    // first, see if this can be mapped to all-singleton
+                    if (parameterDirectMatches.All(matches => matches.Length == 1 && matches[0].c.singleton))
                     {
-                        // accumulate our entire match DB
-                        var parameterDirectMatches = parameters
-                            .Select(param => allComponents
-                                .Select((c, i) => ( c, i ))
-                                .Where(c => param.ParameterType.IsAssignableFrom(c.c.type))
-                                .ToArray())
-                            .ToArray();
-
-                        // first, see if this can be mapped to all-singleton
-                        if (parameterDirectMatches.All(matches => matches.Length == 1 && matches[0].c.singleton))
+                        // it can!
+                        // somewhat surprised tbqh
+                        int[] singletonIndices = new int[parameters.Length];
+                        for (int i = 0; i < parameters.Length; ++i)
                         {
-                            // it can!
-                            // somewhat surprised tbqh
+                            singletonIndices[i] =
+                                allSingletons.FirstIndexOf(singleton =>
+                                    singleton == parameterDirectMatches[i][0].c);
+                        }
+
+                        // Set up our compact call.
+                        dec.process = (tranches, singletons) =>
+                        {
                             object[] args = new object[parameters.Length];
                             for (int i = 0; i < parameters.Length; ++i)
                             {
-                                args[i] = singletons[
-                                    allSingletons.FirstIndexOf(singleton =>
-                                        singleton == parameterDirectMatches[i][0].c)];
+                                args[i] = singletons[singletonIndices[i]];
                             }
 
                             // done; if we're unambiguously all singleton, then we can't possibly have non-singleton items, can we!
@@ -159,86 +183,123 @@ namespace Ghi
                             {
                                 Dbg.Ex(e);
                             }
+                        };
 
-                            return;
-                        }
-                        else if (parameterDirectMatches.Any(matches => matches.All(m => !m.c.singleton)))
-                        {
-                            // definitely can't be a singleton match, so we're OK with it
-                        }
-                        else if (parameterDirectMatches.Any(matches => matches.Length > 1))
-                        {
-                            var ambiguity = string.Join("; ", parameters.Zip(parameterDirectMatches, (param, matches) => ( param, matches ))
-                                .Where(x => x.matches.Length > 1)
-                                .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
+                        // NEXT.
+                        continue;
+                    }
+                    else if (parameterDirectMatches.Any(matches => matches.All(m => !m.c.singleton)))
+                    {
+                        // definitely can't be a singleton match, so we're OK with it
+                    }
+                    else if (parameterDirectMatches.Any(matches => matches.Length > 1))
+                    {
+                        var ambiguity = string.Join("; ", parameters.Zip(parameterDirectMatches, (param, matches) => ( param, matches ))
+                            .Where(x => x.matches.Length > 1)
+                            .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
 
-                            Dbg.Err($"{dec}: Ambiguity in singleton scan! {ambiguity}");
+                        Dbg.Err($"{dec}: Ambiguity in singleton scan! {ambiguity}");
+                    }
+                }
+
+                // for each tranche, we need to see if it applies . . .
+                var trancheDat = new List<(int trancheId, (int from, int to)[] singletonRemap, (int from, int to)[] trancheRemap)>();
+
+                for (int trancheId = 0; trancheId < allEntities.Length; ++trancheId)
+                {
+                    // see if we can find an unambiguous mapping, including all singletons and every one of our component types
+                    var availableComponents = allSingletons.Concat(allEntities[trancheId].components).ToArray();
+                    var parameterTrancheMatches = parameters
+                        .Select(param => availableComponents
+                            .Select((c, i) => (c.type, i))
+                            .Concat(Enumerable.Repeat((typeof(Entity), -1), 1))
+                            .Where(c => param.ParameterType.IsAssignableFrom(c.Item1))
+                            .Select(c => c.Item2)
+                            .ToArray())
+                        .ToArray();
+
+                    if (parameterTrancheMatches.All(matches => matches.Length == 1))
+                    {
+                        // our singletons are first, followed by possible components, so we need to map these up as appropriate
+                        // as we do this, we build a remap array for us to rapidly remap things
+                        List<(int from, int to)> singletonRemaps = new List<(int from, int to)>();
+                        List<(int from, int to)> trancheRemaps = new List<(int from, int to)>();
+                        for (int j = 0; j < parameters.Length; ++j)
+                        {
+                            if (parameterTrancheMatches[j][0] == -1)
+                            {
+                                // this is Entity
+                                trancheRemaps.Add((-1, j));
+                            }
+                            else if (parameterTrancheMatches[j][0] < allSingletons.Length)
+                            {
+                                // this is a singleton
+                                singletonRemaps.Add(( parameterTrancheMatches[j][0], j ));
+                            }
+                            else
+                            {
+                                // this is a component
+                                trancheRemaps.Add(( parameterTrancheMatches[j][0] - allSingletons.Length, j ));
+                            }
                         }
+
+                        // compile this down for efficiency
+                        var singletonRemapArray = singletonRemaps.OrderBy(remap => remap.from).ToArray();
+                        var trancheRemapArray = trancheRemaps.OrderBy(remap => remap.from).ToArray();
+
+                        trancheDat.Add((trancheId, singletonRemapArray, trancheRemapArray));
+                    }
+                    else if (parameterTrancheMatches.Any(matches => matches.Length > 1))
+                    {
+                        var ambiguity = string.Join("; ", parameters.Zip(parameterTrancheMatches, (param, matches) => ( param, matches ))
+                            .Where(x => x.matches.Length > 1)
+                            .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.ToString()))}]"));
+
+                        Dbg.Err($"{dec}: Ambiguity in entity scan! {ambiguity}");
+                    }
+                }
+
+                if (trancheDat.Count != 0)
+                {
+                    // verify that singletons match on each one
+                    for (int i = 1; i < trancheDat.Count; ++i)
+                    {
+                        Assert.AreEqual(trancheDat[0].singletonRemap, trancheDat[i].singletonRemap);
                     }
 
-                    bool found = false;
+                    // we put singletons in a single array so we can do it exactly once
+                    var singletonLookup = trancheDat[0].singletonRemap;
+                    var trancheLookups = trancheDat.Select(tdo => ( tdo.trancheId, tdo.trancheRemap )).ToArray();
 
-                    // for each tranche . . .
-                    for (int i = 0; i < allEntities.Length; ++i)
+                    // here's our actual call
+                    dec.process = (tranches, singletons) =>
                     {
-                        // see if we can find an unambiguous mapping, including all singletons and every one of our component types
-                        var availableComponents = allSingletons.Concat(allEntities[i].components).ToArray();
-                        var parameterTrancheMatches = parameters
-                            .Select(param => availableComponents
-                                .Select((c, i) => (c.type, i))
-                                .Concat(Enumerable.Repeat((typeof(Entity), -1), 1))
-                                .Where(c => param.ParameterType.IsAssignableFrom(c.Item1))
-                                .Select(c => c.Item2)
-                                .ToArray())
-                            .ToArray();
-
-                        if (parameterTrancheMatches.All(matches => matches.Length == 1))
+                        object[] args = new object[parameters.Length];
+                        for (int j = 0; j < singletonLookup.Length; ++j)
                         {
-                            // we have a match!
-                            found = true;
+                            args[singletonLookup[j].to] = singletons[singletonLookup[j].from];
+                        }
 
-                            // our singletons are first, followed by possible components, so we need to map these up as appropriate
-                            object[] args = new object[parameters.Length];
+                        for (int i = 0; i < trancheLookups.Length; ++i)
+                        {
+                            int trancheId = trancheLookups[i].trancheId;
+                            var trancheRemapArray = trancheLookups[i].trancheRemap;
+                            var tranche = tranches[trancheId];
 
-                            // as we do this, we build a remap array for us to rapidly remap things
-                            List<(int from, int to)> remapsWorking = new List<(int from, int to)>();
-                            for (int j = 0; j < parameters.Length; ++j)
-                            {
-                                if (parameterTrancheMatches[j][0] == -1)
-                                {
-                                    // this is Entity
-                                    remapsWorking.Add((-1, j));
-                                }
-                                else
-                                if (parameterTrancheMatches[j][0] < singletons.Length)
-                                {
-                                    // this is a singleton
-                                    args[j] = singletons[parameterTrancheMatches[j][0]];
-                                }
-                                else
-                                {
-                                    // this is a component
-                                    remapsWorking.Add(( parameterTrancheMatches[j][0] - singletons.Length, j ));
-                                }
-                            }
-
-                            // compile this down for efficiency
-                            var remaps = remapsWorking.ToArray();
-
-                            // do it
-                            for (int index = 0; index < tranches[i].entries.Count; ++index)
+                            // for each entity in this tranche . . .
+                            for (int index = 0; index < tranche.entries.Count; ++index)
                             {
                                 // remap the components
-                                for (int j = 0; j < remaps.Length; ++j)
+                                for (int j = 0; j < trancheRemapArray.Length; ++j)
                                 {
-                                    int from = remaps[j].from;
+                                    int from = trancheRemapArray[j].from;
                                     if (from == -1)
                                     {
-                                        args[remaps[j].to] = tranches[i].entries[index];
+                                        args[trancheRemapArray[j].to] = tranche.entries[index];
                                     }
                                     else
                                     {
-                                        args[remaps[j].to] = tranches[i].components[remaps[j].from][index];
+                                        args[trancheRemapArray[j].to] = tranche.components[from][index];
                                     }
                                 }
 
@@ -253,22 +314,13 @@ namespace Ghi
                                 }
                             }
                         }
-                        else if (parameterTrancheMatches.Any(matches => matches.Length > 1))
-                        {
-                            var ambiguity = string.Join("; ", parameters.Zip(parameterTrancheMatches, (param, matches) => ( param, matches ))
-                                .Where(x => x.matches.Length > 1)
-                                .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.ToString()))}]"));
-
-                            Dbg.Err($"{dec}: Ambiguity in entity scan! {ambiguity}");
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        // this can really be refined more
-                        Dbg.Err($"No entity type matches when attempting to run system {dec}!");
-                    }
-                };
+                    };
+                }
+                else
+                {
+                    // this can really be refined more
+                    Dbg.Err($"No entity type matches when attempting to run system {dec}!");
+                }
             }
         }
 
