@@ -275,7 +275,7 @@ namespace Ghi
 
                     // we put singletons in a single array so we can do it exactly once
                     var singletonLookup = trancheDat[0].singletonRemap;
-                    var trancheLookups = trancheDat.Select(tdo => ( tdo.trancheId, tdo.trancheRemap )).ToArray();
+                    var trancheLookups = trancheDat.Select(tdo => (tdo.trancheId, tdo.trancheRemap)).ToArray();
 
                     // build our artificial IL function
                     var dynamicMethod = new DynamicMethod($"ExecuteSystem{dec.DecName}",
@@ -357,9 +357,9 @@ namespace Ghi
                                 il.Emit(OpCodes.Ldc_I4, from);
                                 il.Emit(OpCodes.Ldelem_Ref);
 
-                                // shove this into another local
-                                // TODO cast to a Array[]?
-                                var local = il.DeclareLocal(typeof(IList));
+                                // get the appropriate array type
+                                var arrayType = allEntities[trancheId].components[from].type.MakeArrayType();
+                                var local = il.DeclareLocal(arrayType);
                                 il.Emit(OpCodes.Stloc, local);
 
                                 // and then we'll just use a lambda to grab it later
@@ -367,7 +367,7 @@ namespace Ghi
                                 {
                                     il.Emit(OpCodes.Ldloc, local);
                                     il.Emit(OpCodes.Ldloc, index);
-                                    il.Emit(OpCodes.Callvirt, typeof(IList).GetMethod("get_Item"));
+                                    il.Emit(OpCodes.Ldelem_Ref);
                                 };
                             }
                         }
