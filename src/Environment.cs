@@ -1,14 +1,10 @@
 
-using System.Reflection.Emit;
-
 namespace Ghi
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
-    using System.Data.Common;
-
     using System.Linq;
+    using System.Reflection.Emit;
 
     public class Environment : Dec.IRecordable
     {
@@ -357,9 +353,11 @@ namespace Ghi
                                 il.Emit(OpCodes.Ldc_I4, from);
                                 il.Emit(OpCodes.Ldelem_Ref);
 
-                                // get the appropriate array type
-                                var arrayType = allEntities[trancheId].components[from].type.MakeArrayType();
+                                // get the appropriate array type so we can avoid casts at runtime
+                                var itemType = allEntities[trancheId].components[from].type;
+                                var arrayType = itemType.MakeArrayType();
                                 var local = il.DeclareLocal(arrayType);
+                                il.Emit(OpCodes.Castclass, arrayType);
                                 il.Emit(OpCodes.Stloc, local);
 
                                 // and then we'll just use a lambda to grab it later
@@ -367,7 +365,7 @@ namespace Ghi
                                 {
                                     il.Emit(OpCodes.Ldloc, local);
                                     il.Emit(OpCodes.Ldloc, index);
-                                    il.Emit(OpCodes.Ldelem_Ref);
+                                    il.Emit(OpCodes.Ldelem, itemType);
                                 };
                             }
                         }
