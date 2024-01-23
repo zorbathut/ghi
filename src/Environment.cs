@@ -33,8 +33,8 @@ namespace Ghi
 
         internal struct Tranche : Dec.IRecordable
         {
-            public List<Entity> entries;
-            public IList[] components;
+            public List<Entity> entries;    // this length is canonical
+            public Array[] components;  // these grow as needed, but often include padding
 
             public void Record(Dec.Recorder recorder)
             {
@@ -459,10 +459,12 @@ namespace Ghi
             foreach ((var index, var entity) in Dec.Database<EntityDec>.List.OrderBy(ed => ed.DecName).Select((ed, i) => (i, ed)))
             {
                 tranches[index].entries = new List<Entity>();
-                tranches[index].components = new IList[entity.components.Count];
+                tranches[index].components = new Array[entity.components.Count];
                 for (int i = 0; i < entity.components.Count; ++i)
                 {
-                    tranches[index].components[i] = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(entity.components[i].type));
+                    // arbitrarily hardcoded starting size; should this be bigger? smaller? who can say! it is a mystery
+                    // probably shouldn't actually matter tbqh
+                    tranches[index].components[i] = Array.CreateInstance(entity.components[i].type, 16);
                 }
             }
 
@@ -542,14 +544,14 @@ namespace Ghi
 
                     var tranche = new Tranche();
                     tranche.entries = new List<Entity>();
-                    tranche.components = new List<object>[dec.components.Count];
+                    tranche.components = new Array[dec.components.Count];
 
                     // create a new set of components
                     for (int i = 0; i < dec.components.Count; ++i)
                     {
                         // currently not worrying about minmaxing efficiency here
-                        tranche.components[i] = new List<object>();
-                        tranche.components[i].Add(resultComponents[i]);
+                        tranche.components[i] = Array.CreateInstance(dec.components[i].type, 1);
+                        tranche.components[i].SetValue(resultComponents[i], 0);
                     }
 
                     // do this late because it's a struct
@@ -561,7 +563,7 @@ namespace Ghi
                         // copy components back from the tranche
                         for (int i = 0; i < dec.components.Count; ++i)
                         {
-                            currentComponents[i] = tranche.components[i][0];
+                            currentComponents[i] = tranche.components[i].GetValue(0);
                         }
                         entityDeferred.replacement = AddNow(dec, currentComponents);
                     });
@@ -579,7 +581,16 @@ namespace Ghi
 
             for (int i = 0; i < dec.components.Count; ++i)
             {
-                tranche.components[i].Add(components[i]);
+                // we want to add this to the end, but it's a static array so (1) that's not "the end", and (2) we may need to realloc
+                if (tranche.components[i].Length <= trancheId)
+                {
+                    // we need to realloc :(
+                    var newArray = Array.CreateInstance(dec.components[i].type, trancheId * 2);
+                    Array.Copy(tranche.components[i], newArray, trancheId);
+                    tranche.components[i] = newArray;
+                }
+
+                tranche.components[i].SetValue(components[i], trancheId);
             }
 
             // now allocate the actual entity ID
@@ -639,9 +650,10 @@ namespace Ghi
                 tranche.entries.RemoveAt(lookup.index);
 
                 // also, the same for every list
+                // we kinda just reset it in order to ensure we "garbage-collect" stuff
                 for (int i = 0; i < tranche.components.Length; ++i)
                 {
-                    tranche.components[i].RemoveAt(lookup.index);
+                    tranche.components[i].SetValue(lookup.dec.components[i].type.CreateDefault(), lookup.index);
                 }
             }
             else
@@ -655,8 +667,8 @@ namespace Ghi
                 // also, the same for every list
                 for (int i = 0; i < tranche.components.Length; ++i)
                 {
-                    tranche.components[i][lookup.index] = tranche.components[i][endEntry];
-                    tranche.components[i].RemoveAt(endEntry);
+                    tranche.components[i].SetValue(tranche.components[i].GetValue(endEntry), lookup.index);
+                    tranche.components[i].SetValue(lookup.dec.components[i].type.CreateDefault(), endEntry);
                 }
 
                 // now patch up the entity lookup table for the item we just swapped in

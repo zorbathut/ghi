@@ -47,11 +47,13 @@ namespace Ghi
             Func<Environment.Tranche, int, object> tryGetter;
 
             // look over our components and see if we have something that makes sense
+            // note: if this is slow, this might be another good target for runtime codegen
+            // especially so we can kill boxing
             var matches = components.Select((c, i) => (c.type, i)).Where(c => type.IsAssignableFrom(c.type)).ToArray();
             if (matches.Length == 1)
             {
                 var cindex = matches[0].i;
-                getter = (tranche, index) => tranche.components[cindex][index];
+                getter = (tranche, index) => tranche.components[cindex].GetValue(index);
                 tryGetter = getter;
             }
             else if (matches.Length == 0)

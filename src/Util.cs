@@ -26,5 +26,17 @@ namespace Ghi
 
             return -1;
         }
+
+        internal static object CreateDefault(this Type type)
+        {
+            if (type.IsValueType)
+            {
+                return Activator.CreateInstance(type);
+            }
+            else
+            {
+                return null;
+            }
+        }
     }
 }
