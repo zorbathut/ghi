@@ -141,14 +141,15 @@ namespace Ghi
             foreach (var dec in Dec.Database<SystemDec>.List)
             {
                 var method = dec.method;
-                var parameters = method.GetParameters();
+                var parameters = method.GetParameters().Select(param => param.ParameterType).ToArray();
+                var parametersBare = parameters.Select(param => param.IsByRef ? param.GetElementType() : param).ToArray();
 
                 {
                     // accumulate our entire match DB
-                    var parameterDirectMatches = parameters
+                    var parameterDirectMatches = parametersBare
                         .Select(param => allComponents
                             .Select((c, i) => ( c, i ))
-                            .Where(c => param.ParameterType.IsAssignableFrom(c.c.type))
+                            .Where(c => param.IsAssignableFrom(c.c.type))
                             .ToArray())
                         .ToArray();
 
@@ -198,7 +199,7 @@ namespace Ghi
                     {
                         var ambiguity = string.Join("; ", parameters.Zip(parameterDirectMatches, (param, matches) => ( param, matches ))
                             .Where(x => x.matches.Length > 1)
-                            .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
+                            .Select(x => $"{x.param} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
 
                         Dbg.Err($"{dec}: Ambiguity in singleton scan! {ambiguity}");
                     }
@@ -211,11 +212,11 @@ namespace Ghi
                 {
                     // see if we can find an unambiguous mapping, including all singletons and every one of our component types
                     var availableComponents = allSingletons.Concat(allEntities[trancheId].components).ToArray();
-                    var parameterTrancheMatches = parameters
+                    var parameterTrancheMatches = parametersBare
                         .Select(param => availableComponents
                             .Select((c, i) => (c.type, i))
                             .Concat(Enumerable.Repeat((typeof(Entity), -1), 1))
-                            .Where(c => param.ParameterType.IsAssignableFrom(c.Item1))
+                            .Where(c => param.IsAssignableFrom(c.Item1))
                             .Select(c => c.Item2)
                             .ToArray())
                         .ToArray();
@@ -255,7 +256,7 @@ namespace Ghi
                     {
                         var ambiguity = string.Join("; ", parameters.Zip(parameterTrancheMatches, (param, matches) => ( param, matches ))
                             .Where(x => x.matches.Length > 1)
-                            .Select(x => $"{x.param.ParameterType} matches [{string.Join(", ", x.matches.Select(m => m.ToString()))}]"));
+                            .Select(x => $"{x.param} matches [{string.Join(", ", x.matches.Select(m => m.ToString()))}]"));
 
                         Dbg.Err($"{dec}: Ambiguity in entity scan! {ambiguity}");
                     }
@@ -282,7 +283,7 @@ namespace Ghi
 
                     // yank singletons out and apply appropriate casting
                     // we're making an array based on our parameter order so we can fill it in later
-                    Action<int>[] singletonLookups = new Action<int>[method.GetParameters().Length];
+                    Action<int>[] singletonLookups = new Action<int>[parameters.Length];
                     for (int i = 0; i < singletonLookup.Length; ++i)
                     {
                         il.Emit(OpCodes.Ldarg_1);
@@ -293,12 +294,11 @@ namespace Ghi
                         // use a ref so we're not copying structs around
                         il.Emit(OpCodes.Ldelem_Ref);
 
-                        var local = il.DeclareLocal(method.GetParameters()[singletonLookup[i].to].ParameterType);
+                        var local = il.DeclareLocal(parameters[singletonLookup[i].to]);
                         il.Emit(OpCodes.Stloc, local);
 
                         singletonLookups[singletonLookup[i].to] = index =>
                         {
-                            il.EmitWriteLine("PARAM - singleton");
                             il.Emit(OpCodes.Ldloc, local);
                         };
                     }
@@ -354,6 +354,7 @@ namespace Ghi
                                 il.Emit(OpCodes.Ldelem_Ref);
 
                                 // get the appropriate array type so we can avoid casts at runtime
+                                // we pull this out of the entity type, not our parameter types; implicit casting on the function call is (probably?) cheaper than messing around with arrays
                                 var itemType = allEntities[trancheId].components[from].type;
                                 var arrayType = itemType.MakeArrayType();
                                 var local = il.DeclareLocal(arrayType);
@@ -361,11 +362,20 @@ namespace Ghi
                                 il.Emit(OpCodes.Stloc, local);
 
                                 // and then we'll just use a lambda to grab it later
+                                var parameter = parameters[trancheRemapArray[j].to];
                                 lookups[trancheRemapArray[j].to] = index =>
                                 {
                                     il.Emit(OpCodes.Ldloc, local);
                                     il.Emit(OpCodes.Ldloc, index);
-                                    il.Emit(OpCodes.Ldelem, itemType);
+
+                                    if (parameter.IsByRef)
+                                    {
+                                        il.Emit(OpCodes.Ldelema, itemType);
+                                    }
+                                    else
+                                    {
+                                        il.Emit(OpCodes.Ldelem, itemType);
+                                    }
                                 };
                             }
                         }
