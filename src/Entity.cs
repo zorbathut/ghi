@@ -283,7 +283,7 @@ namespace Ghi
                         return null;
                     }
 
-                    return dec.components.Select(c => dec.GetComponentFrom(c.type, tranche, index)).ToArray();
+                    return dec.components.Select(c => dec.GetComponentFrom(c.GetComputedType(), tranche, index)).ToArray();
                 }
             }
         }

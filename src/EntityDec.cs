@@ -38,7 +38,7 @@ namespace Ghi
         internal bool HasComponent(Type type)
         {
             // should really cache this
-            return components.Any(c => type.IsAssignableFrom(c.type));
+            return components.Any(c => type.IsAssignableFrom(c.GetComputedType()));
         }
 
         private (Func<Environment.Tranche, int, object> getter, Func<Environment.Tranche, int, object> tryGetter) CreateGetters(Type type)
@@ -49,7 +49,7 @@ namespace Ghi
             // look over our components and see if we have something that makes sense
             // note: if this is slow, this might be another good target for runtime codegen
             // especially so we can kill boxing
-            var matches = components.Select((c, i) => (c.type, i)).Where(c => type.IsAssignableFrom(c.type)).ToArray();
+            var matches = components.Select((c, i) => (type: c.GetComputedType(), i: i)).Where(c => type.IsAssignableFrom(c.type)).ToArray();
             if (matches.Length == 1)
             {
                 var cindex = matches[0].i;

@@ -7,10 +7,22 @@ namespace Ghi
     {
         public Type type = null;
         public bool singleton = false;
-        public bool immutable = false;
+        public bool cow = false;
 
         [Dec.Index]
         public int index;
+
+        internal Type GetComputedType()
+        {
+            if (cow)
+            {
+                return typeof(Cow<>).MakeGenericType(type);
+            }
+            else
+            {
+                return type;
+            }
+        }
 
         public override void ConfigErrors(Action<string> reporter)
         {

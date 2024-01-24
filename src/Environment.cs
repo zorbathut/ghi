@@ -153,7 +153,7 @@ namespace Ghi
                     var parameterDirectMatches = parametersBare
                         .Select(param => allComponents
                             .Select((c, i) => ( c, i ))
-                            .Where(c => param.IsAssignableFrom(c.c.type))
+                            .Where(c => param.IsAssignableFrom(c.c.GetComputedType()))
                             .ToArray())
                         .ToArray();
 
@@ -203,7 +203,7 @@ namespace Ghi
                     {
                         var ambiguity = string.Join("; ", parameters.Zip(parameterDirectMatches, (param, matches) => ( param, matches ))
                             .Where(x => x.matches.Length > 1)
-                            .Select(x => $"{x.param} matches [{string.Join(", ", x.matches.Select(m => m.c.type.ToString()))}]"));
+                            .Select(x => $"{x.param} matches [{string.Join(", ", x.matches.Select(m => m.c.GetComputedType().ToString()))}]"));
 
                         Dbg.Err($"{dec}: Ambiguity in singleton scan! {ambiguity}");
                     }
@@ -218,7 +218,7 @@ namespace Ghi
                     var availableComponents = allSingletons.Concat(allEntities[trancheId].components).ToArray();
                     var parameterTrancheMatches = parametersBare
                         .Select(param => availableComponents
-                            .Select((c, i) => (c.type, i))
+                            .Select((c, i) => (c.GetComputedType(), i))
                             .Concat(Enumerable.Repeat((typeof(Entity), -1), 1))
                             .Where(c => param.IsAssignableFrom(c.Item1))
                             .Select(c => c.Item2)
@@ -359,7 +359,7 @@ namespace Ghi
 
                                 // get the appropriate array type so we can avoid casts at runtime
                                 // we pull this out of the entity type, not our parameter types; implicit casting on the function call is (probably?) cheaper than messing around with arrays
-                                var itemType = allEntities[trancheId].components[from].type;
+                                var itemType = allEntities[trancheId].components[from].GetComputedType();
                                 var arrayType = itemType.MakeArrayType();
                                 var local = il.DeclareLocal(arrayType);
                                 il.Emit(OpCodes.Castclass, arrayType);
@@ -458,12 +458,12 @@ namespace Ghi
         {
             // I'm not worried about singleton inheritance yet
             var singletonTypes = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
-            singletonLookup = singletonTypes.Select((cd, i) => (cd.type, i)).ToDictionary(x => x.type, x => x.i);
+            singletonLookup = singletonTypes.Select((cd, i) => (type: cd.GetComputedType(), i)).ToDictionary(x => x.type, x => x.i);
 
             singletons = new object[singletonTypes.Length];
             foreach ((var dec, var i) in singletonTypes.Select((cd, i) => (cd, i)))
             {
-                singletons[i] = Activator.CreateInstance(dec.type);
+                singletons[i] = Activator.CreateInstance(dec.GetComputedType());
             }
 
             // create tranches
@@ -476,7 +476,7 @@ namespace Ghi
                 {
                     // arbitrarily hardcoded starting size; should this be bigger? smaller? who can say! it is a mystery
                     // probably shouldn't actually matter tbqh
-                    tranches[index].components[i] = Array.CreateInstance(entity.components[i].type, 16);
+                    tranches[index].components[i] = Array.CreateInstance(entity.components[i].GetComputedType(), 16);
                 }
             }
 
@@ -503,7 +503,7 @@ namespace Ghi
                 {
                     for (int j = 0; j < providedComponents.Length; ++j)
                     {
-                        if (dec.components[i].type.IsAssignableFrom(providedComponents[j].GetType()))
+                        if (dec.components[i].GetComputedType().IsAssignableFrom(providedComponents[j].GetType()))
                         {
                             if (match == -1)
                             {
@@ -511,7 +511,7 @@ namespace Ghi
                             }
                             else
                             {
-                                Dbg.Err($"Ambiguity in component match for {dec.DecName}; {dec.components[i].type} matches both {providedComponents[match].GetType()} and {providedComponents[j].GetType()}");
+                                Dbg.Err($"Ambiguity in component match for {dec.DecName}; {dec.components[i].GetComputedType()} matches both {providedComponents[match].GetType()} and {providedComponents[j].GetType()}");
                             }
                         }
                     }
@@ -524,7 +524,7 @@ namespace Ghi
                 }
                 else
                 {
-                    components[i] = Activator.CreateInstance(dec.components[i].type);
+                    components[i] = Activator.CreateInstance(dec.components[i].GetComputedType());
                 }
             }
 
@@ -562,7 +562,7 @@ namespace Ghi
                     for (int i = 0; i < dec.components.Count; ++i)
                     {
                         // currently not worrying about minmaxing efficiency here
-                        tranche.components[i] = Array.CreateInstance(dec.components[i].type, 1);
+                        tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), 1);
                         tranche.components[i].SetValue(resultComponents[i], 0);
                     }
 
@@ -597,7 +597,7 @@ namespace Ghi
                 if (tranche.components[i].Length <= trancheId)
                 {
                     // we need to realloc :(
-                    var newArray = Array.CreateInstance(dec.components[i].type, trancheId * 2);
+                    var newArray = Array.CreateInstance(dec.components[i].GetComputedType(), trancheId * 2);
                     Array.Copy(tranche.components[i], newArray, trancheId);
                     tranche.components[i] = newArray;
                 }
@@ -665,7 +665,7 @@ namespace Ghi
                 // we kinda just reset it in order to ensure we "garbage-collect" stuff
                 for (int i = 0; i < tranche.components.Length; ++i)
                 {
-                    tranche.components[i].SetValue(lookup.dec.components[i].type.CreateDefault(), lookup.index);
+                    tranche.components[i].SetValue(lookup.dec.components[i].GetComputedType().CreateDefault(), lookup.index);
                 }
             }
             else
@@ -680,7 +680,7 @@ namespace Ghi
                 for (int i = 0; i < tranche.components.Length; ++i)
                 {
                     tranche.components[i].SetValue(tranche.components[i].GetValue(endEntry), lookup.index);
-                    tranche.components[i].SetValue(lookup.dec.components[i].type.CreateDefault(), endEntry);
+                    tranche.components[i].SetValue(lookup.dec.components[i].GetComputedType().CreateDefault(), endEntry);
                 }
 
                 // now patch up the entity lookup table for the item we just swapped in
