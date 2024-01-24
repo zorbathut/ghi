@@ -72,12 +72,16 @@ namespace Ghi
             }
         }
 
-        public void OnPostClone()
+        public Environment Clone()
         {
+            var clone = Dec.Recorder.Clone(this);
+
             // bump!
             // this allows our COW structures to recognize that they may now be shared
-            // this effectively locks every existing COW member at its current state for eternity; if it changes it, it'll be by cloning it first
+            // this effectively locks every existing COW class at its current state for eternity; if it changes it, it'll be by cloning it first
             uniqueId = System.Threading.Interlocked.Increment(ref s_LastUniqueId);
+
+            return clone;
         }
 
         // Status
