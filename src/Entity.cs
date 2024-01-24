@@ -81,6 +81,14 @@ namespace Ghi
 
         public T Component<T>()
         {
+            if (typeof(T).IsGenericType && typeof(T).BaseType == typeof(Cow<>))
+            {
+                // no this kinda just doesn't work right now sorry
+                // (needs to return a ref, or do the COW analysis internally)
+                Dbg.Err("Returning COW types from entities is not supported yet, sorry");
+                return default;
+            }
+
             var env = Environment.Current.Value;
             if (env == null)
             {
@@ -119,6 +127,14 @@ namespace Ghi
 
         public T TryComponent<T>()
         {
+            if (typeof(T).IsGenericType && typeof(T).BaseType == typeof(Cow<>))
+            {
+                // no this kinda just doesn't work right now sorry
+                // (needs to return a ref, or do the COW analysis internally)
+                Dbg.Err("Returning COW types from entities is not supported yet, sorry");
+                return default;
+            }
+
             var env = Environment.Current.Value;
             if (env == null)
             {

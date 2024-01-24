@@ -31,6 +31,14 @@ namespace Ghi
             {
                 reporter("Type's Execute method does not return void");
             }
+
+            foreach (var param in method.GetParameters())
+            {
+                if (param.ParameterType.IsGenericType && param.ParameterType.GetGenericTypeDefinition() == typeof(Ghi.Cow<>)  && !param.ParameterType.IsByRef)
+                {
+                    reporter($"Type's Execute method has a non-ref Cow<> parameter {param.Name}, which will not work as desired");
+                }
+            }
         }
     }
 }
