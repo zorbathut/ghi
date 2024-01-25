@@ -191,12 +191,6 @@ namespace Ghi
             return new EntityIdentifier(id, gen);
         }
 
-        // -1 if we're not COW, otherwise a unique value not shared with other COW objects with this EntityIdentifer
-        public long GetEntityRevision()
-        {
-            return -1;
-        }
-
         public EntityDec GetEntityDec()
         {
             var env = Environment.Current.Value;
