@@ -19,6 +19,11 @@ public struct Cow<T> : Dec.IRecordable where T : class, new()
         revision = Environment.Current.Value.UniqueId;
     }
 
+    public long GetRevision()
+    {
+        return revision;
+    }
+
     public T GetRW()
     {
         var env = Environment.Current.Value;
