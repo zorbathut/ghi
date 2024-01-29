@@ -129,7 +129,7 @@ public class Cow : Base
         Ghi.Cow<IntClassComponent> cow = new Ghi.Cow<IntClassComponent>();
         IntClassComponent original = cow.GetRO();
 
-        var envClone = env.Clone();
+        var envClone = Dec.Recorder.Clone(env);
 
         IntClassComponent postCloneRO = cow.GetRO();
         IntClassComponent postCloneRW = cow.GetRW();
@@ -163,7 +163,7 @@ public class Cow : Base
             Assert.AreSame(cowOriginal, CowRWSystem.holder);
         }
 
-        var envClone = env.Clone();
+        var envClone = Dec.Recorder.Clone(env);
 
         {
             using var envActive = new Environment.Scope(envClone);

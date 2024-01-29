@@ -6,7 +6,7 @@ namespace Ghi
     using System.Linq;
     using System.Reflection.Emit;
 
-    public class Environment : Dec.IRecordable
+    public class Environment : Dec.IRecordable, Dec.IPostCloneNew, Dec.IPostCloneOriginal
     {
         public static System.Threading.ThreadLocal<Environment> Current = new();
         public struct Scope : IDisposable
@@ -72,16 +72,16 @@ namespace Ghi
             }
         }
 
-        public Environment Clone()
+        // bump!
+        // this allows our COW structures to recognize that they may now be shared
+        // this effectively locks every existing COW class at its current state for eternity; if it changes it, it'll be by cloning it first
+        public void PostCloneOriginal()
         {
-            var clone = Dec.Recorder.Clone(this);
-
-            // bump!
-            // this allows our COW structures to recognize that they may now be shared
-            // this effectively locks every existing COW class at its current state for eternity; if it changes it, it'll be by cloning it first
             uniqueId = System.Threading.Interlocked.Increment(ref s_LastUniqueId);
-
-            return clone;
+        }
+        public void PostCloneNew()
+        {
+            uniqueId = System.Threading.Interlocked.Increment(ref s_LastUniqueId);
         }
 
         // Status
