@@ -800,6 +800,9 @@ namespace Ghi
             Assert.AreEqual(status, Status.Idle);
             Assert.AreEqual(phaseEndActions.Count, 0);
 
+            // so that our children can use cows
+            using var scope = new Scope(this);
+
             recorder.Record(ref tranches, "tranches");
             recorder.Record(ref entityLookup, "entityLookup");
             recorder.Record(ref entityFreeList, "entityFreeList");
