@@ -89,6 +89,17 @@ namespace Ghi
             {
                 reporter("No defined components");
             }
+
+            if (components.Any(c => c == null))
+            {
+                reporter("Null component");
+            }
+
+            if (components.Any(c => c?.type == null))
+            {
+                reporter("Cleaning component list from invalid components");
+                components.RemoveAll(c => c?.type == null);
+            }
         }
     }
 }

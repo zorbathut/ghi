@@ -30,6 +30,12 @@ namespace Ghi
             else if (method.ReturnType != typeof(void))
             {
                 reporter("Type's Execute method does not return void");
+                method = null;
+            }
+
+            if (method == null)
+            {
+                return;
             }
 
             foreach (var param in method.GetParameters())
