@@ -31,6 +31,12 @@ namespace Ghi
             if (type == null)
             {
                 reporter("No defined type");
+                return;
+            }
+
+            if (type.IsValueType && singleton)
+            {
+                reporter("Singleton components cannot currently be structs or other value types");
             }
         }
     }
