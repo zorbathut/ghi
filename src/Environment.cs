@@ -653,6 +653,9 @@ namespace Ghi
                 return;
             }
 
+            // send appropriate messages
+            entity.OnRemove();
+
             // we want to keep each tranche contiguous
 
             var tranche = tranches[lookup.dec.index];

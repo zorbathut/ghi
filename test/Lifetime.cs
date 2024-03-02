@@ -212,5 +212,47 @@ namespace Ghi.Test
                 Assert.IsTrue(entities.All(e => e.Component<StringComponent>().str == "beefs"));
             });
         }
+
+        public class OnRemoveComp : Ghi.IOnRemove
+        {
+            public static int removed = 0;
+
+            public void OnRemove(Entity entity)
+            {
+                removed++;
+            }
+        }
+
+        [Test]
+        public void OnRemove()
+        {
+            OnRemoveComp.removed = 0;
+
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""OnRemoveComp"">
+                        <type>OnRemoveComp</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>OnRemoveComp</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var ent = env.Add(Dec.Database<EntityDec>.Get("EntityModel"));
+            Assert.AreEqual(0, OnRemoveComp.removed);
+            env.Remove(ent);
+            Assert.AreEqual(1, OnRemoveComp.removed);
+        }
     }
 }
