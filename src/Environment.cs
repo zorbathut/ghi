@@ -856,8 +856,8 @@ namespace Ghi
         public void Record(Dec.Recorder recorder)
         {
             // make sure we're not actively doing things
-            Assert.AreEqual(status, Status.Idle);
-            Assert.AreEqual(phaseEndActions.Count, 0);
+            Assert.AreEqual(Status.Idle, status);
+            Assert.AreEqual(0, phaseEndActions.Count);
 
             // so that our children can use cows
             using var scope = new Scope(this);
