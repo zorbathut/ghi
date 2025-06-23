@@ -1,6 +1,12 @@
 
 namespace Ghi;
 
+// copy-on-write handle for making Ghi.Environment clones
+// note: *this has weird semantics*.
+// this provides COW support if and only if it's cloned as part of an Environment. local operator= assignments do not behave like you may want them to.
+// if you do a local operator=, both of them are safely readable as long as neither of them have been written to
+// if you ever write to one of them, the other one is left is an undefined state. perhaps it will change! perhaps it will not! you will never know.
+// so if you ever make an operator=-assigned COW, make sure all but one of them are discarded before you write to any.
 [Dec.CloneStructPiecewise]   // copies value's ref and revision, just like we want
 public struct Cow<T> : Dec.IRecordable
 {
