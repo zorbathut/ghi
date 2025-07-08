@@ -31,6 +31,10 @@ namespace Ghi.Test
         [SetUp] [TearDown]
         public void Clean()
         {
+            // stop verifying things
+            errorValidator = null;
+            warningValidator = null;
+
             // we turn on error handling so that Clear can work even if we're in the wrong mode
             handlingErrors = true;
 
@@ -50,6 +54,8 @@ namespace Ghi.Test
 
         private bool handlingErrors = false;
         private bool handledError = false;
+        private Func<string, bool> errorValidator = null;
+        private Func<string, bool> warningValidator = null;
 
         public enum EnvironmentMode
         {
@@ -104,47 +110,86 @@ namespace Ghi.Test
             typeof(Dec.Config).GetField("TestParameters", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, parameters);
         }
 
-        protected void ExpectWarnings(Action action)
+        protected enum ExpectationType
         {
-            Assert.IsFalse(handlingWarnings);
-            handlingWarnings = true;
-            handledWarning = false;
-
-            action();
-
-            Assert.IsTrue(handlingWarnings);
-            Assert.IsTrue(handledWarning);
-            handlingWarnings = false;
-            handledWarning = false;
+            Disallow,
+            Tolerate,
+            Expect,
         }
-
-        protected void ExpectErrors(Action action)
+        private bool withinExpect = false;
+        protected void ExpectGeneral(Action action, string context = "unlabeled context", ExpectationType warning = ExpectationType.Disallow, Func<string, bool> warningValidator = null, ExpectationType error = ExpectationType.Disallow, Func<string, bool> errorValidator = null)
         {
-            Assert.IsFalse(handlingErrors);
-            handlingErrors = true;
-            handledError = false;
+            Assert.IsFalse(withinExpect);
+            withinExpect = true;
 
-            action();
-
-            Assert.IsTrue(handlingErrors);
-            Assert.IsTrue(handledError);
-            handlingErrors = false;
-            handledError = false;
-        }
-
-        protected void ExpectException(Action action)
-        {
-            bool excepted = false;
-            try
+            // Check initial states based on expectations
+            if (warning != ExpectationType.Disallow)
             {
-                action();
-            }
-            catch
-            {
-                excepted = true;
+                Assert.IsFalse(handlingWarnings, "Already handling warnings");
+                handlingWarnings = true;
+                handledWarning = false;
+                this.warningValidator = warningValidator;
             }
 
-            Assert.IsTrue(excepted);
+            if (error != ExpectationType.Disallow)
+            {
+                Assert.IsFalse(handlingErrors, "Already handling errors");
+                handlingErrors = true;
+                handledError = false;
+                this.errorValidator = errorValidator;
+            }
+
+            // Execute the action
+            action();
+
+            // Check for expected warnings
+            if (warning == ExpectationType.Expect)
+            {
+                Assert.IsTrue(handlingWarnings);
+                Assert.IsTrue(handledWarning, $"Expected warning in {context} but did not generate one");
+            }
+
+            // Check for expected errors
+            if (error == ExpectationType.Expect)
+            {
+                Assert.IsTrue(handlingErrors);
+                Assert.IsTrue(handledError, $"Expected error in {context} but did not generate one");
+            }
+
+            // Reset state for warnings
+            if (warning != ExpectationType.Disallow)
+            {
+                handlingWarnings = false;
+                handledWarning = false;
+                this.warningValidator = null;
+            }
+
+            // Reset state for errors
+            if (error != ExpectationType.Disallow)
+            {
+                handlingErrors = false;
+                handledError = false;
+                this.errorValidator = null;
+            }
+
+            withinExpect = false;
+        }
+
+        protected void ExpectWarnings(Action action, string context = "unlabeled context", Func<string, bool> warningValidator = null)
+        {
+            ExpectGeneral(action, context, ExpectationType.Expect, warningValidator, ExpectationType.Disallow, null);
+        }
+
+        // Return "true" if this is the expected error, "false" if this is a bad error
+        protected void ExpectErrors(Action action, string context = "unlabeled context", Func<string, bool> errorValidator = null)
+        {
+            ExpectGeneral(action, context, ExpectationType.Disallow, null, ExpectationType.Expect, errorValidator);
+        }
+
+        protected void ExpectWarningsAndErrors(Action action, string context = "unlabeled context",
+            Func<string, bool> warningValidator = null, Func<string, bool> errorValidator = null)
+        {
+            ExpectGeneral(action, context, ExpectationType.Expect, warningValidator, ExpectationType.Expect, errorValidator);
         }
 
         public void ProcessEnvMode(Ghi.Environment env, EnvironmentMode mode, Action<Ghi.Environment> test)

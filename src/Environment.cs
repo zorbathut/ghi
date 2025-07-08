@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using Dec;
 
 namespace Ghi
 {
@@ -31,10 +32,17 @@ namespace Ghi
             public List<Entity> entries;    // this length is canonical
             public Array[] components;  // these grow as needed, but often include padding
 
+            // metadata
+            public EntityDec entity;
+            public Type[] componentTypes;
+
             public void Record(Dec.Recorder recorder)
             {
                 recorder.Record(ref entries, "entries");
                 recorder.Record(ref components, "components");
+
+                recorder.Record(ref entity, "entity");
+                recorder.Record(ref componentTypes, "componentTypes");
             }
         }
         private Tranche[] tranches;
@@ -55,7 +63,7 @@ namespace Ghi
         private List<EntityLookup> entityLookup = new();
         private List<int> entityFreeList = new();
 
-        private static List<Ghi.EntityDec> indexToEntityDec;
+        private static Ghi.EntityDec[] indexToEntityDec;
 
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
@@ -146,7 +154,7 @@ namespace Ghi
         {
             var DbgEx = typeof(Dbg).GetMethod("Ex", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
 
-            indexToEntityDec = Dec.Database<Ghi.EntityDec>.List.OrderBy(dec => dec.DecName).ToList();
+            indexToEntityDec = Dec.Database<Ghi.EntityDec>.List.OrderBy(dec => dec.DecName).ToArray();
             foreach((var dec, int i) in indexToEntityDec.Select((dec, i) => (dec, i)))
             {
                 dec.index = i;
@@ -480,6 +488,8 @@ namespace Ghi
 
         public Environment()
         {
+            // a lot of this stuff really shouldn't happen if we're being dec-constructed; worry about that later
+
             // I'm not worried about singleton inheritance yet
             var singletonTypes = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
             singletonLookup = singletonTypes.Select((cd, i) => (type: cd.GetComputedType(), i)).ToDictionary(x => x.type, x => x.i);
@@ -494,18 +504,29 @@ namespace Ghi
             tranches = new Tranche[Dec.Database<EntityDec>.List.Length];
             foreach ((var index, var entity) in Dec.Database<EntityDec>.List.OrderBy(ed => ed.DecName).Select((ed, i) => (i, ed)))
             {
-                tranches[index].entries = new List<Entity>();
-                tranches[index].components = new Array[entity.components.Count];
-                for (int i = 0; i < entity.components.Count; ++i)
-                {
-                    // arbitrarily hardcoded starting size; should this be bigger? smaller? who can say! it is a mystery
-                    // probably shouldn't actually matter tbqh
-                    tranches[index].components[i] = Array.CreateInstance(entity.components[i].GetComputedType(), 16);
-                }
+                tranches[index] = CreateNewTranche(entity);
             }
 
             // create status
             status = Status.Idle;
+        }
+
+        private Tranche CreateNewTranche(EntityDec dec)
+        {
+            var tranche = new Tranche();
+            tranche.entries = new List<Entity>();
+            tranche.components = new Array[dec.components.Count];
+            tranche.entity = dec;
+            tranche.componentTypes = dec.components.Select(c => c.GetComputedType()).ToArray();
+
+            for (int i = 0; i < dec.components.Count; ++i)
+            {
+                // arbitrarily hardcoded starting size; should this be bigger? smaller? who can say! it is a mystery
+                // probably shouldn't actually matter tbqh
+                tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), 16);
+            }
+
+            return tranche;
         }
 
         private object[] FillComponents(EntityDec dec, object[] providedComponents)
@@ -581,6 +602,7 @@ namespace Ghi
                     var tranche = new Tranche();
                     tranche.entries = new List<Entity>();
                     tranche.components = new Array[dec.components.Count];
+                    // we ignore the metadata because this should never be serialized
 
                     // create a new set of components
                     for (int i = 0; i < dec.components.Count; ++i)
@@ -866,8 +888,104 @@ namespace Ghi
             recorder.Record(ref entityLookup, "entityLookup");
             recorder.Record(ref entityFreeList, "entityFreeList");
             recorder.Record(ref singletons, "singletons");
-            recorder.Record(ref singletonLookup, "singletonLookup");
             recorder.Record(ref prngState, "prngState");
+
+            if (recorder.Intent == Dec.Recorder.Purpose.Cloning)
+            {
+                // copy this over if we're cloning, but we don't worry about it otherwise
+                recorder.Record(ref singletonLookup, "singletonLookup");
+            }
+
+            if (recorder.Intent == Dec.Recorder.Purpose.Serialization && recorder.Mode == Recorder.Direction.Read)
+            {
+                var entityDecs = indexToEntityDec;
+
+                // gotta rebuild the tranches based on the expected types
+                var oldTranches = tranches;
+                tranches = new Tranche[entityDecs.Length];
+
+                // remap every tranche that we can
+                for (int i = 0; i < entityDecs.Length; ++i)
+                {
+                    var originalTranche = oldTranches.FirstOrDefault(t => t.entity == entityDecs[i]);
+
+                    if (originalTranche.components == null)
+                    {
+                        // welp, gotta create one
+                        originalTranche = CreateNewTranche(entityDecs[i]);
+                    }
+                    else
+                    {
+                        // remap components within the tranche
+                        var oldComponentTypes = originalTranche.componentTypes;
+                        var oldComponents = originalTranche.components;
+
+                        var newComponentTypes = entityDecs[i].components.Select(c => c.GetComputedType()).ToArray();
+                        var newComponents = new Array[entityDecs[i].components.Count];
+
+                        for (int j = 0; j < newComponentTypes.Length; ++j)
+                        {
+                            // find the old component type
+                            int oldIndex = Array.IndexOf(oldComponentTypes, newComponentTypes[j]);
+                            if (oldIndex == -1)
+                            {
+                                // this is a new component type, so we need to create a new array. duplicate our current component sizes I guess
+                                newComponents[j] = Array.CreateInstance(newComponentTypes[j], oldComponents[0].Length);
+
+                                // and now fill it with the component
+                                for (int k = 0; k < originalTranche.entries.Count; ++k)
+                                {
+                                    newComponents[j].SetValue(Activator.CreateInstance(newComponentTypes[j]), originalTranche.entries[k].id);
+                                }
+                            }
+                            else
+                            {
+                                // this is an existing component type, so we can just copy it over
+                                newComponents[j] = oldComponents[oldIndex];
+                            }
+                        }
+
+                        originalTranche.components = newComponents;
+                        originalTranche.componentTypes = newComponentTypes;
+                    }
+
+                    tranches[i] = originalTranche;
+                }
+
+                // update singletons
+                object[] newSingletons = new object[singletonLookup.Count];
+                foreach (var kvp in singletonLookup)
+                {
+                    // see if we can find it in our old singletons
+                    int index = Array.FindIndex(singletons, s => s != null && kvp.Key.IsAssignableFrom(s.GetType()));
+                    if (index != -1)
+                    {
+                        newSingletons[kvp.Value] = singletons[index];
+                    }
+                    else
+                    {
+                        // we don't have this singleton, so we need to create it
+                        newSingletons[kvp.Value] = Activator.CreateInstance(kvp.Key);
+                    }
+                }
+                singletons = newSingletons;
+
+                // go through and GC the entity lookup table
+                for (int i = 0; i < entityLookup.Count; ++i)
+                {
+                    if (entityLookup[i].dec == null && entityLookup[i].index != -1)
+                    {
+                        // deleted entry; add it to the freelist and clear properly
+                        entityFreeList.Add(i);
+
+                        // bump the gen so anything pointing at this ends up marked as deleted
+                        entityLookup[i] = new EntityLookup() { dec = null, index = -1, gen = entityLookup[i].gen + 1 };
+                    }
+                }
+
+                // make sure we don't have duplicates in the freelist!
+                Assert.IsTrue(entityFreeList.Distinct().Count() == entityFreeList.Count);
+            }
         }
     }
 }
