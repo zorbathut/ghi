@@ -40,11 +40,45 @@ namespace Ghi
 
             public void Record(Dec.Recorder recorder)
             {
-                recorder.Record(ref entries, "entries");
-                recorder.Record(ref components, "components");
+                if (recorder.Intent == Recorder.Purpose.Cloning)
+                {
+                    // just duplicate
+                    recorder.Record(ref entries, "entries");
+                    recorder.Record(ref components, "components");
 
-                recorder.Record(ref entity, "entity");
-                recorder.Record(ref componentTypes, "componentTypes");
+                    recorder.Record(ref entity, "entity");
+                    recorder.Record(ref componentTypes, "componentTypes");
+                }
+                else if (recorder.Intent == Recorder.Purpose.Checksum || recorder.Mode == Recorder.Direction.Write)
+                {
+                    // we want to write only up to the active components length
+                    recorder.Record(ref entries, "entries");
+
+                    // compile it down into an actual array
+                    Array[] writeComponents = new Array[components.Length];
+                    for (int j = 0; j < components.Length; ++j)
+                    {
+                        var compArray = Array.CreateInstance(components[j].GetType().GetElementType(), entries.Count);
+                        for (int i = 0; i < entries.Count; ++i)
+                        {
+                            compArray.SetValue(components[j].GetValue(i), i);
+                        }
+                        writeComponents[j] = compArray;
+                    }
+                    recorder.Record(ref writeComponents, "components");
+
+                    recorder.Record(ref entity, "entity");
+                    recorder.Record(ref componentTypes, "componentTypes");
+                }
+                else if (recorder.Mode == Recorder.Direction.Read)
+                {
+                    // and the opposite of that. we're not actually padding the array because I'm lazy
+                    recorder.Record(ref entries, "entries");
+                    recorder.Record(ref components, "components");
+
+                    recorder.Record(ref entity, "entity");
+                    recorder.Record(ref componentTypes, "componentTypes");
+                }
             }
         }
         private Tranche[] tranches;
@@ -647,7 +681,8 @@ namespace Ghi
                 if (tranche.components[i].Length <= trancheId)
                 {
                     // we need to realloc :(
-                    var newArray = Array.CreateInstance(dec.components[i].GetComputedType(), trancheId * 2);
+                    // we might have a small array thanks to deserialization; if we do, pad it up to the base array size at least
+                    var newArray = Array.CreateInstance(dec.components[i].GetComputedType(), Math.Max(trancheId * 2, BaseArraySize));
                     Array.Copy(tranche.components[i], newArray, trancheId);
                     tranche.components[i] = newArray;
                 }
