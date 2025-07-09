@@ -8,6 +8,8 @@ namespace Ghi
 {
     public class Environment : Dec.IRecordable, Dec.IPostCloneNew, Dec.IPostCloneOriginal
     {
+        private const int BaseArraySize = 16;
+
         public static System.Threading.ThreadLocal<Environment> Current = new();
         public struct Scope : IDisposable
         {
@@ -523,7 +525,7 @@ namespace Ghi
             {
                 // arbitrarily hardcoded starting size; should this be bigger? smaller? who can say! it is a mystery
                 // probably shouldn't actually matter tbqh
-                tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), 16);
+                tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), BaseArraySize);
             }
 
             return tranche;
