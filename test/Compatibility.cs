@@ -475,13 +475,14 @@ namespace Ghi.Test
                 var env = Dec.Recorder.Read<Ghi.Environment>(serialized);
                 using var envActive = new Environment.Scope(env);
 
+                // Entities should be in same order
                 var entities = env.List.ToArray();
                 Assert.AreEqual(3, entities.Length);
 
                 // Check values
-                Assert.AreEqual(10, entities.Single(ent => ent.HasComponent<ComponentA>()).ComponentRO<ComponentA>().data);
-                Assert.AreEqual("Beta", entities.Single(ent => ent.HasComponent<ComponentB>()).ComponentRO<ComponentB>().text);
-                Assert.AreEqual(2.5f, entities.Single(ent => ent.HasComponent<ComponentC>()).ComponentRO<ComponentC>().value);
+                Assert.AreEqual(10, entities[0].ComponentRO<ComponentA>().data);
+                Assert.AreEqual("Beta", entities[1].ComponentRO<ComponentB>().text);
+                Assert.AreEqual(2.5f, entities[2].ComponentRO<ComponentC>().value);
 
                 Assert.AreEqual(checksum, Dec.Recorder.Checksum(env));
             }
