@@ -156,6 +156,7 @@ namespace Ghi.Test
                 Assert.AreEqual("Hello", ent.ComponentRO<ComponentB>().text);
                 Assert.AreEqual(3.14f, ent.ComponentRO<ComponentC>().value);
 
+                // currently not provided, but components are ordered anyway, so, fine
                 //Assert.AreEqual(checksum, Dec.Recorder.Checksum(env));
             }
         }
@@ -364,6 +365,7 @@ namespace Ghi.Test
             UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityMultiple) } });
 
             string serialized;
+            ulong checksum;
 
             {
                 var parser = new Dec.Parser();
@@ -425,6 +427,7 @@ namespace Ghi.Test
                 gamma.ComponentRW<ComponentC>().value = 2.5f;
 
                 serialized = Dec.Recorder.Write(env, pretty: true);
+                checksum = Dec.Recorder.Checksum(env);
             }
 
             // reboot!
@@ -479,6 +482,8 @@ namespace Ghi.Test
                 Assert.AreEqual(10, entities.Single(ent => ent.HasComponent<ComponentA>()).ComponentRO<ComponentA>().data);
                 Assert.AreEqual("Beta", entities.Single(ent => ent.HasComponent<ComponentB>()).ComponentRO<ComponentB>().text);
                 Assert.AreEqual(2.5f, entities.Single(ent => ent.HasComponent<ComponentC>()).ComponentRO<ComponentC>().value);
+
+                Assert.AreEqual(checksum, Dec.Recorder.Checksum(env));
             }
         }
 
@@ -730,6 +735,7 @@ namespace Ghi.Test
             UpdateTestParameters(new Dec.Config.UnitTestParameters { });
 
             string serialized;
+            ulong checksum;
 
             {
                 var parser = new Dec.Parser();
@@ -763,6 +769,7 @@ namespace Ghi.Test
                 env.Singleton<ComponentC>().value = 7.77f;
 
                 serialized = Dec.Recorder.Write(env, pretty: true);
+                checksum = Dec.Recorder.Checksum(env);
             }
 
             // reboot!
@@ -798,6 +805,8 @@ namespace Ghi.Test
                 Assert.AreEqual(100, env.Singleton<ComponentA>().data);
                 Assert.AreEqual("SingletonB", env.Singleton<ComponentB>().text);
                 Assert.AreEqual(7.77f, env.Singleton<ComponentC>().value);
+
+                Assert.AreEqual(checksum, Dec.Recorder.Checksum(env));
             }
         }
 
