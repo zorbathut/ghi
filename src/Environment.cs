@@ -890,7 +890,7 @@ namespace Ghi
                 status = Status.Processing;
 
                 {
-                    //using var p = Prof.Sample(name: system.DecName);
+                    using var p = Config.ProfFactory(system.DecName);
 
                     system.process(tranches, singletons, CleanCurrentEntityDeferred);
                 }
