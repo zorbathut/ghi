@@ -972,7 +972,7 @@ namespace Ghi
                                 // and now fill it with the component
                                 for (int k = 0; k < originalTranche.entries.Count; ++k)
                                 {
-                                    newComponents[j].SetValue(Activator.CreateInstance(newComponentTypes[j]), originalTranche.entries[k].id);
+                                    newComponents[j].SetValue(Activator.CreateInstance(newComponentTypes[j]), k);
                                 }
                             }
                             else

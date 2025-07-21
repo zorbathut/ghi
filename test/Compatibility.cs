@@ -53,6 +53,15 @@ namespace Ghi.Test
         }
 
         [Dec.StaticReferences]
+        public static class EntityDual
+        {
+            static EntityDual() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static EntityDec EntityAlpha;
+            public static EntityDec EntityBeta;
+        }
+
+        [Dec.StaticReferences]
         public static class EntityMultiple
         {
             static EntityMultiple() { Dec.StaticReferencesAttribute.Initialized(); }
@@ -244,6 +253,117 @@ namespace Ghi.Test
 
                 // grab our entity
                 var ent = env.List.First();
+                Assert.IsTrue(ent.IsValid());
+
+                // check original component values
+                Assert.AreEqual(99, ent.ComponentRO<ComponentA>().data);
+                Assert.AreEqual(1.23f, ent.ComponentRO<ComponentC>().value);
+
+                // check new components exist with default values
+                Assert.IsNotNull(ent.HasComponent<ComponentB>());
+                Assert.AreEqual(null, ent.ComponentRO<ComponentB>().text);
+                Assert.IsNotNull(ent.HasComponent<ComponentD>());
+                Assert.AreEqual(false, ent.ComponentRO<ComponentD>().flag);
+            }
+        }
+
+        [Test]
+        public void ComponentAddMultitranche()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityDual) } });
+
+            string serialized;
+
+            {
+                var parser = new Dec.Parser();
+                parser.AddString(Dec.Parser.FileType.Xml, @"
+                    <Decs>
+                        <ComponentDec decName=""A"">
+                            <type>ComponentA</type>
+                        </ComponentDec>
+
+                        <ComponentDec decName=""C"">
+                            <type>ComponentC</type>
+                        </ComponentDec>
+
+                        <EntityDec decName=""EntityAlpha"">
+                            <components>
+                                <li>A</li>
+                                <li>C</li>
+                            </components>
+                        </EntityDec>
+
+                        <EntityDec decName=""EntityBeta"">
+                            <components>
+                                <li>A</li>
+                            </components>
+                        </EntityDec>
+                    </Decs>
+                ");
+                parser.Finish();
+
+                Environment.Init();
+                var env = new Environment();
+                using var envActive = new Environment.Scope(env);
+
+                var _ = env.Add(EntityDual.EntityBeta);
+
+                var ent = env.Add(EntityDual.EntityAlpha);
+
+                // set component values
+                ent.ComponentRW<ComponentA>().data = 99;
+                ent.ComponentRW<ComponentC>().value = 1.23f;
+
+                serialized = Dec.Recorder.Write(env, pretty: true);
+            }
+
+            // reboot!
+            Clean();
+
+            {
+                var parser = new Dec.Parser();
+                parser.AddString(Dec.Parser.FileType.Xml, @"
+                    <Decs>
+                        <ComponentDec decName=""A"">
+                            <type>ComponentA</type>
+                        </ComponentDec>
+
+                        <ComponentDec decName=""B"">
+                            <type>ComponentB</type>
+                        </ComponentDec>
+
+                        <ComponentDec decName=""C"">
+                            <type>ComponentC</type>
+                        </ComponentDec>
+
+                        <ComponentDec decName=""D"">
+                            <type>ComponentD</type>
+                        </ComponentDec>
+
+                        <EntityDec decName=""EntityAlpha"">
+                            <components>
+                                <li>A</li>
+                                <li>B</li>
+                                <li>C</li>
+                                <li>D</li>
+                            </components>
+                        </EntityDec>
+
+                        <EntityDec decName=""EntityBeta"">
+                            <components>
+                                <li>A</li>
+                            </components>
+                        </EntityDec>
+                    </Decs>
+                ");
+                parser.Finish();
+
+                Environment.Init();
+                var env = Dec.Recorder.Read<Ghi.Environment>(serialized);
+                using var envActive = new Environment.Scope(env);
+
+                // grab our entity
+                var ent = env.List.Single(ent => ent.GetEntityDec() == EntityDual.EntityAlpha);
                 Assert.IsTrue(ent.IsValid());
 
                 // check original component values
