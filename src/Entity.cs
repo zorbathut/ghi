@@ -70,6 +70,12 @@ namespace Ghi
 
         public bool HasComponent(ComponentDec t)
         {
+            if (t == null)
+            {
+                // you fool
+                return false;
+            }
+
             var env = Environment.Current.Value;
             if (env == null)
             {

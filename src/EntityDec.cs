@@ -39,7 +39,7 @@ namespace Ghi
         internal bool HasComponent(Type type)
         {
             // should really cache this
-            return components.Any(c => type.IsAssignableFrom(c.GetComputedType()));
+            return type != null && components.Any(c => type.IsAssignableFrom(c.GetComputedType()));
         }
 
         internal void SetComponentOn(Type type, Environment.Tranche tranche, int index, object value)

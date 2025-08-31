@@ -127,5 +127,58 @@ namespace Ghi.Test
                 Assert.IsTrue(entityB.HasComponent<SubclassDerivedAlternate>());
             });
         }
+
+        public class NotAComponent { }
+
+        [Dec.StaticReferences]
+        public static class HasComponentErrorDecs
+        {
+            static HasComponentErrorDecs() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static ComponentDec ComponentFailure;
+        }
+        [Test]
+        public void HasComponentError()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(Decs), typeof(HasComponentErrorDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""ComponentA"">
+                        <type>SubclassDerived</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""ComponentB"">
+                        <type>SubclassDerivedAlternate</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""ComponentFailure"">
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModelA"">
+                        <components>
+                            <li>ComponentA</li>
+                        </components>
+                    </EntityDec>
+
+                    <EntityDec decName=""EntityModelB"">
+                        <components>
+                            <li>ComponentB</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            ExpectErrors(() =>parser.Finish());
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entityA = env.Add(Decs.EntityModelA);
+
+            Assert.IsFalse(entityA.HasComponent(null));
+            Assert.IsFalse(entityA.HasComponent<NotAComponent>());
+            Assert.IsFalse(entityA.HasComponent(HasComponentErrorDecs.ComponentFailure));
+        }
     }
 }
