@@ -205,6 +205,13 @@ namespace Ghi
             foreach (var dec in Dec.Database<SystemDec>.List)
             {
                 var method = dec.method;
+                if (method == null)
+                {
+                    // we have presumably already generated an error; just stub it out
+                    dec.process = (tranches, singletons, action) => { };
+                    continue;
+                }
+
                 var parameters = method.GetParameters().Select(param => param.ParameterType).ToArray();
                 var parametersBare = parameters.Select(param => param.IsByRef ? param.GetElementType() : param).ToArray();
 
@@ -518,6 +525,9 @@ namespace Ghi
                 {
                     // this can really be refined more
                     Dbg.Err($"No entity type matches when attempting to run system {dec}!");
+
+                    // give it a no-op function
+                    dec.process = (tranches, singletons, action) => { };
                 }
             }
         }

@@ -1088,5 +1088,75 @@ namespace Ghi.Test
                 Assert.AreEqual(8.88f, env.Singleton<ComponentC>().value);
             }
         }
+
+        [Dec.StaticReferences]
+        public static class BrokenSystemDecs
+        {
+            static BrokenSystemDecs() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static ProcessDec Process;
+        }
+
+        [Test]
+        public void BrokenMethodless()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(BrokenSystemDecs) } });
+
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <SystemDec decName=""BrokenSystem"">
+                        <type>ThisDoesntExist</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""Process"">
+                        <order>
+                            <li>BrokenSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            ExpectErrors(() => parser.Finish());
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            env.Process(BrokenSystemDecs.Process);
+        }
+
+        public class Stub { }
+        public static class ComponentlessSystem
+        {
+            public static void Execute(Stub stub) { }
+        }
+
+        [Test]
+        public void BrokenComponentless()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(BrokenSystemDecs) } });
+
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <SystemDec decName=""BrokenSystem"">
+                        <type>ComponentlessSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""Process"">
+                        <order>
+                            <li>BrokenSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            ExpectErrors(() => Environment.Init());
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            env.Process(BrokenSystemDecs.Process);
+        }
     }
 }
