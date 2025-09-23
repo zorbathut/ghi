@@ -51,8 +51,8 @@ namespace Ghi
                 }
                 else if (recorder.Intent == Recorder.Purpose.Checksum || recorder.Mode == Recorder.Direction.Write)
                 {
-                    // we want to write only up to the active components length
-                    recorder.Record(ref entries, "entries");
+                    // put at the top just to make the savefile more readable
+                    recorder.Record(ref entity, "entity");
 
                     // compile it down into an actual array
                     Array[] writeComponents = new Array[components.Length];
@@ -67,8 +67,9 @@ namespace Ghi
                     }
                     recorder.Record(ref writeComponents, "components");
 
-                    recorder.Record(ref entity, "entity");
-                    recorder.Record(ref componentTypes, "componentTypes");
+                    // we want to write only up to the active components length
+                    recorder.Record(ref entries, "entries");
+                    recorder.Record(ref componentTypes, "componentTypes");  // this is kind of redundant with the component arrays honestly
                 }
                 else if (recorder.Mode == Recorder.Direction.Read)
                 {
