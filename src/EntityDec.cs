@@ -36,7 +36,12 @@ namespace Ghi
             return tryGetter(tranche, index);
         }
 
-        internal bool HasComponent(Type type)
+        public bool HasComponent<T>()
+        {
+            return HasComponent(typeof(T));
+        }
+
+        public bool HasComponent(Type type)
         {
             // should really cache this
             return type != null && components.Any(c => type.IsAssignableFrom(c.GetComputedType()));
