@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Ghi
@@ -234,6 +235,41 @@ namespace Ghi
             }
 
             dec.SetComponentOn(typeof(T), tranche, index, component);
+        }
+
+        /// <summary>
+        /// Iterates through all components attached to this entity.
+        /// </summary>
+        /// <returns>An enumerable of all component instances on this entity.</returns>
+        /// <remarks>
+        /// Components are returned as boxed objects. This is intended for generic algorithms
+        /// that need to operate on all components without knowing their types in advance.
+        /// This really won't work if you want to write to structs.
+        ///
+        /// The iteration order matches the component order defined in the entity's EntityDec.
+        /// </remarks>
+        public IEnumerable<object> Components()
+        {
+            Resolve();
+
+            var env = Environment.Current.Value;
+            if (env == null)
+            {
+                Dbg.Err($"Attempted to get components from entity while env is unavailable");
+                yield break;
+            }
+
+            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
+            if (dec == null)
+            {
+                Dbg.Err($"Attempted to get components from dead entity {this}");
+                yield break;
+            }
+
+            foreach (var componentDec in dec.components)
+            {
+                yield return dec.GetComponentFrom(componentDec.GetComputedType(), tranche, index);
+            }
         }
 
         internal void OnRemove()

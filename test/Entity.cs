@@ -365,5 +365,117 @@ namespace Ghi.Test
             Assert.AreEqual(entity2, entity2copy);
             Assert.AreEqual(comp2, comp2copy);
         }
+
+        [Test]
+        public void ComponentIteration()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""Component"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(EntityTemplateDecs.EntityModel);
+            var components = entity.Components().ToArray();
+
+            Assert.AreEqual(1, components.Length);
+            Assert.IsInstanceOf<SimpleComponent>(components[0]);
+            Assert.AreSame(entity.Component<SimpleComponent>(), components[0]);
+        }
+
+        [Test]
+        public void ComponentIterationMultiple()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""SimpleComp"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""StringComp"">
+                        <type>StringComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>SimpleComp</li>
+                            <li>StringComp</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(EntityTemplateDecs.EntityModel);
+            var components = entity.Components().ToArray();
+
+            Assert.AreEqual(2, components.Length);
+            Assert.IsInstanceOf<SimpleComponent>(components[0]);
+            Assert.IsInstanceOf<StringComponent>(components[1]);
+            Assert.AreSame(entity.Component<SimpleComponent>(), components[0]);
+            Assert.AreSame(entity.Component<StringComponent>(), components[1]);
+        }
+
+        [Test]
+        public void ComponentIterationLinq()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""SimpleComp"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""StringComp"">
+                        <type>StringComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>SimpleComp</li>
+                            <li>StringComp</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(EntityTemplateDecs.EntityModel);
+
+            // Test that Components() works with LINQ
+            var simpleComponents = entity.Components().OfType<SimpleComponent>().ToArray();
+            var stringComponents = entity.Components().OfType<StringComponent>().ToArray();
+            var componentCount = entity.Components().Count();
+
+            Assert.AreEqual(1, simpleComponents.Length);
+            Assert.AreEqual(1, stringComponents.Length);
+            Assert.AreEqual(2, componentCount);
+        }
     }
 }
