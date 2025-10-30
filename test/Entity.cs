@@ -63,6 +63,18 @@ namespace Ghi.Test
             }
         }
 
+        public static class DeferredComparisonSystem
+        {
+            public static Entity deferredEntity;
+
+            public static void Execute()
+            {
+                // Create an entity and store it while it's in deferred state
+                // Don't access any components or call Resolve() - keep it deferred
+                deferredEntity = Environment.Current.Value.Add(EntityTemplateDecs.EntityModel);
+            }
+        }
+
         [Test]
         public void Inactive()
         {
@@ -476,6 +488,56 @@ namespace Ghi.Test
             Assert.AreEqual(1, simpleComponents.Length);
             Assert.AreEqual(1, stringComponents.Length);
             Assert.AreEqual(2, componentCount);
+        }
+
+        [Test]
+        public void ComparisonDeferredResolved()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs), typeof(EntityProcessTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""Component"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""DeferredSystem"">
+                        <type>DeferredComparisonSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""TestProcess"">
+                        <order>
+                            <li>DeferredSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            // Run the process which creates an entity in deferred state
+            env.Process(EntityProcessTemplateDecs.TestProcess);
+
+            // Get the deferred entity that was captured by the system
+            var entityDeferred = DeferredComparisonSystem.deferredEntity;
+
+            // Get the resolved entity from the environment
+            var ents = env.List.ToArray();
+            Assert.AreEqual(1, ents.Length);
+            var entityResolved = ents[0];
+
+            // The deferred and resolved entities represent the same logical entity
+            // Make sure they auto-resolve properly
+            Assert.AreEqual(entityDeferred, entityResolved);
         }
     }
 }

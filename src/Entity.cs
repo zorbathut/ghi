@@ -364,6 +364,10 @@ namespace Ghi
 
         public bool Equals(Entity other)
         {
+            // make sure we're in the same resolved state, whether that be not-resolved or actually-resolved
+            Resolve();
+            other.Resolve();
+
             if (deferred != null || other.deferred != null)
             {
                 return deferred == other.deferred;
