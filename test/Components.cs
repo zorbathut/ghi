@@ -76,8 +76,8 @@ namespace Ghi.Test
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.AreSame(entityA.Component<SubclassBase>(), entityA.Component<SubclassDerived>());
-                ExpectErrors(() => entityB.Component<SubclassBase>());
+                Assert.AreSame(entityA.ComponentRO<SubclassBase>(), entityA.ComponentRO<SubclassDerived>());
+                ExpectErrors(() => entityB.ComponentRO<SubclassBase>());
             });
         }
 

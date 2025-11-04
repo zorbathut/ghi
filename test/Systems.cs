@@ -202,10 +202,10 @@ namespace Ghi.Test
             var ec = env.Add(LotsOfComponentsDecs.EntityC);
             var ed = env.Add(LotsOfComponentsDecs.EntityD);
 
-            ea.Component<ComponentA>();
-            eb.Component<ComponentB>();
-            ec.Component<ComponentC>();
-            ed.Component<ComponentD>();
+            ea.ComponentRO<ComponentA>();
+            eb.ComponentRO<ComponentB>();
+            ec.ComponentRO<ComponentC>();
+            ed.ComponentRO<ComponentD>();
 
             ProcessEnvMode(env, envMode, env =>
             {

@@ -44,7 +44,7 @@ namespace Ghi.Test
             using var envActive = new Environment.Scope(env);
 
             var entity = env.Add(GenericEntityModel.EntityModel, new object[] { new IntHolder() { value = 42 }});
-            Assert.AreEqual(42, entity.Component<IntHolder>().value);
+            Assert.AreEqual(42, entity.ComponentRO<IntHolder>().value);
         }
     }
 }

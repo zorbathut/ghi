@@ -115,7 +115,7 @@ namespace Ghi
             return dec.HasComponent(typeof(T));
         }
 
-        public T Component<T>()
+        private T Component<T>()
         {
             if (typeof(T).IsGenericType && typeof(T).BaseType == typeof(Cow<>))
             {
@@ -161,7 +161,7 @@ namespace Ghi
             return Component<T>();
         }
 
-        public T TryComponent<T>()
+        private T TryComponent<T>()
         {
             if (typeof(T).IsGenericType && typeof(T).BaseType == typeof(Cow<>))
             {
@@ -516,34 +516,24 @@ namespace Ghi
             return entity.HasComponent<T>();
         }
 
-        public T Get()
-        {
-            return entity.Component<T>();
-        }
-
         public T GetRO()
         {
-            return Get();
+            return entity.ComponentRO<T>();
         }
 
         public T GetRW()
         {
-            return Get();
-        }
-
-        public T TryGet()
-        {
-            return entity.TryComponent<T>();
+            return entity.ComponentRW<T>();
         }
 
         public T TryGetRO()
         {
-            return TryGet();
+            return entity.TryComponentRO<T>();
         }
 
         public T TryGetRW()
         {
-            return TryGet();
+            return entity.TryComponentRW<T>();
         }
 
         public static bool operator==(EntityComponent<T> a, EntityComponent<T> b)

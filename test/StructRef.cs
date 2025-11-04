@@ -82,7 +82,7 @@ public class StructRef : Base
             env.Process(Decs.StructProcessRef);
 
             Assert.AreEqual(1, StructSystemRef.hit);
-            Assert.AreEqual(9, se.Component<StructComponent>().value);
+            Assert.AreEqual(9, se.ComponentRO<StructComponent>().value);
         });
     }
 }

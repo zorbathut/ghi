@@ -51,7 +51,7 @@ namespace Ghi.Test
             var ents = env.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
-            Assert.IsTrue(ents[0].Component<SimpleComponent>() != null);
+            Assert.IsTrue(ents[0].ComponentRO<SimpleComponent>() != null);
 	    }
 
         public static class InactiveTestSystem
@@ -59,7 +59,7 @@ namespace Ghi.Test
             public static void Execute()
             {
                 var entity = Environment.Current.Value.Add(EntityTemplateDecs.EntityModel);
-                entity.Component<SimpleComponent>().number = 4;
+                entity.ComponentRW<SimpleComponent>().number = 4;
             }
         }
 
@@ -114,7 +114,7 @@ namespace Ghi.Test
             var ents = env.List.ToArray();
 
             Assert.AreEqual(1, ents.Length);
-            Assert.AreEqual(4, ents[0].Component<SimpleComponent>().number);
+            Assert.AreEqual(4, ents[0].ComponentRO<SimpleComponent>().number);
         }
 
         [Test] [Ignore("Explicit components not currently implemented")]
@@ -407,7 +407,7 @@ namespace Ghi.Test
 
             Assert.AreEqual(1, components.Length);
             Assert.IsInstanceOf<SimpleComponent>(components[0]);
-            Assert.AreSame(entity.Component<SimpleComponent>(), components[0]);
+            Assert.AreSame(entity.ComponentRO<SimpleComponent>(), components[0]);
         }
 
         [Test]
@@ -445,8 +445,8 @@ namespace Ghi.Test
             Assert.AreEqual(2, components.Length);
             Assert.IsInstanceOf<SimpleComponent>(components[0]);
             Assert.IsInstanceOf<StringComponent>(components[1]);
-            Assert.AreSame(entity.Component<SimpleComponent>(), components[0]);
-            Assert.AreSame(entity.Component<StringComponent>(), components[1]);
+            Assert.AreSame(entity.ComponentRO<SimpleComponent>(), components[0]);
+            Assert.AreSame(entity.ComponentRO<StringComponent>(), components[1]);
         }
 
         [Test]

@@ -47,8 +47,8 @@ namespace Ghi.Test
 
             var entityA = env.Add(RemovalDecs.EntityModel);
             Assert.IsTrue(entityA.IsValid());
-            Assert.IsNotNull(entityA.TryComponent<StringComponent>());
-            Assert.IsNotNull(entityA.Component<StringComponent>());
+            Assert.IsNotNull(entityA.TryComponentRO<StringComponent>());
+            Assert.IsNotNull(entityA.ComponentRO<StringComponent>());
 
             env.Remove(entityA);
 
@@ -56,15 +56,15 @@ namespace Ghi.Test
             {
                 Assert.IsFalse(entityA.IsValid());
 
-                Assert.IsNull(entityA.TryComponent<StringComponent>());
+                Assert.IsNull(entityA.TryComponentRO<StringComponent>());
 
-                ExpectErrors(() => Assert.IsNull(entityA.Component<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()));
             });
 
             var entityB = env.Add(RemovalDecs.EntityModel);
             Assert.IsTrue(entityB.IsValid());
-            Assert.IsNotNull(entityB.TryComponent<StringComponent>());
-            Assert.IsNotNull(entityB.Component<StringComponent>());
+            Assert.IsNotNull(entityB.TryComponentRO<StringComponent>());
+            Assert.IsNotNull(entityB.ComponentRO<StringComponent>());
             env.Remove(entityB);
 
             ProcessEnvMode(env, envMode, env =>
@@ -72,11 +72,11 @@ namespace Ghi.Test
                 Assert.IsFalse(entityA.IsValid());
                 Assert.IsFalse(entityB.IsValid());
 
-                Assert.IsNull(entityA.TryComponent<StringComponent>());
-                Assert.IsNull(entityB.TryComponent<StringComponent>());
+                Assert.IsNull(entityA.TryComponentRO<StringComponent>());
+                Assert.IsNull(entityB.TryComponentRO<StringComponent>());
 
-                ExpectErrors(() => Assert.IsNull(entityA.Component<StringComponent>()));
-                ExpectErrors(() => Assert.IsNull(entityB.Component<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityB.ComponentRO<StringComponent>()));
             });
 
             var entityC = env.Add(RemovalDecs.EntityModel);
@@ -84,38 +84,38 @@ namespace Ghi.Test
             var entityE = env.Add(RemovalDecs.EntityModel);
             var entityF = env.Add(RemovalDecs.EntityModel);
 
-            entityC.Component<StringComponent>().str = "C";
-            entityD.Component<StringComponent>().str = "D";
-            entityE.Component<StringComponent>().str = "E";
-            entityF.Component<StringComponent>().str = "F";
+            entityC.ComponentRW<StringComponent>().str = "C";
+            entityD.ComponentRW<StringComponent>().str = "D";
+            entityE.ComponentRW<StringComponent>().str = "E";
+            entityF.ComponentRW<StringComponent>().str = "F";
 
-            Assert.AreEqual("C", entityC.Component<StringComponent>().str);
-            Assert.AreEqual("D", entityD.Component<StringComponent>().str);
-            Assert.AreEqual("E", entityE.Component<StringComponent>().str);
-            Assert.AreEqual("F", entityF.Component<StringComponent>().str);
+            Assert.AreEqual("C", entityC.ComponentRO<StringComponent>().str);
+            Assert.AreEqual("D", entityD.ComponentRO<StringComponent>().str);
+            Assert.AreEqual("E", entityE.ComponentRO<StringComponent>().str);
+            Assert.AreEqual("F", entityF.ComponentRO<StringComponent>().str);
 
             env.Remove(entityD);
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.AreEqual("C", entityC.Component<StringComponent>().str);
-                Assert.IsNull(entityD.TryComponent<StringComponent>());
-                Assert.AreEqual("E", entityE.Component<StringComponent>().str);
-                Assert.AreEqual("F", entityF.Component<StringComponent>().str);
+                Assert.AreEqual("C", entityC.ComponentRO<StringComponent>().str);
+                Assert.IsNull(entityD.TryComponentRO<StringComponent>());
+                Assert.AreEqual("E", entityE.ComponentRO<StringComponent>().str);
+                Assert.AreEqual("F", entityF.ComponentRO<StringComponent>().str);
 
-                Assert.AreEqual(env.List.Select(e => e.Component<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E", "F" });
+                Assert.AreEqual(env.List.Select(e => e.ComponentRO<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E", "F" });
             });
 
             env.Remove(entityF);
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.AreEqual("C", entityC.Component<StringComponent>().str);
-                Assert.IsNull(entityD.TryComponent<StringComponent>());
-                Assert.AreEqual("E", entityE.Component<StringComponent>().str);
-                Assert.IsNull(entityF.TryComponent<StringComponent>());
+                Assert.AreEqual("C", entityC.ComponentRO<StringComponent>().str);
+                Assert.IsNull(entityD.TryComponentRO<StringComponent>());
+                Assert.AreEqual("E", entityE.ComponentRO<StringComponent>().str);
+                Assert.IsNull(entityF.TryComponentRO<StringComponent>());
 
-                Assert.AreEqual(env.List.Select(e => e.Component<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E" });
+                Assert.AreEqual(env.List.Select(e => e.ComponentRO<StringComponent>().str).OrderBy(s => s).ToArray(), new string[] { "C", "E" });
             });
 
         }
@@ -146,15 +146,15 @@ namespace Ghi.Test
 
             var entityA = env.Add(RemovalDecs.EntityModel);
             var refA = EntityComponent<StringComponent>.From(entityA);
-            Assert.IsNotNull(refA.TryGet());
-            Assert.IsNotNull(refA.Get());
+            Assert.IsNotNull(refA.TryGetRO());
+            Assert.IsNotNull(refA.GetRO());
 
             env.Remove(entityA);
 
             ProcessEnvMode(env, envMode, env =>
             {
-                Assert.IsNull(refA.TryGet());
-                ExpectErrors(() => Assert.IsNull(refA.Get()));
+                Assert.IsNull(refA.TryGetRO());
+                ExpectErrors(() => Assert.IsNull(refA.GetRO()));
             });
         }
 
@@ -173,7 +173,7 @@ namespace Ghi.Test
             {
                 var env = Environment.Current.Value;
                 var entity = env.Add(LiveAdditionDecs.EntityModel);
-                entity.Component<StringComponent>().str = "beefs";
+                entity.ComponentRW<StringComponent>().str = "beefs";
 
                 Assert.IsFalse(entity.ToString().Contains("Null"));
             }
@@ -219,7 +219,7 @@ namespace Ghi.Test
             {
                 var entities = env.List.ToArray();
                 Assert.AreEqual(1, entities.Length);
-                Assert.IsTrue(entities.All(e => e.Component<StringComponent>().str == "beefs"));
+                Assert.IsTrue(entities.All(e => e.ComponentRO<StringComponent>().str == "beefs"));
             });
         }
 
@@ -340,7 +340,7 @@ namespace Ghi.Test
             var ent = env.Add(Dec.Database<EntityDec>.Get("EntityModel"));
             RecordRemovals.recorded.Clear();
 
-            var removeRecorder = ent.Component<RemoveRecorderComp>(); // holding onto this so we can check to make sure it's incremented correctly
+            var removeRecorder = ent.ComponentRO<RemoveRecorderComp>(); // holding onto this so we can check to make sure it's incremented correctly
             Assert.AreEqual(0, removeRecorder.removed);
             env.Process(Dec.Database<ProcessDec>.Get("SystemRemoveTest"));
 

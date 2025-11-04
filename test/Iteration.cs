@@ -65,9 +65,9 @@ namespace Ghi.Test
                 env.Process(Decs.TestProcess);
                 Assert.AreEqual(2, IterationSystem.Executions);
 
-                Entity[] entities = env.List.OrderBy(e => e.Component<SimpleComponent>().number).ToArray();
-                Assert.AreEqual(1, entities[0].Component<SimpleComponent>().number);
-                Assert.AreEqual(2, entities[1].Component<SimpleComponent>().number);
+                Entity[] entities = env.List.OrderBy(e => e.ComponentRO<SimpleComponent>().number).ToArray();
+                Assert.AreEqual(1, entities[0].ComponentRO<SimpleComponent>().number);
+                Assert.AreEqual(2, entities[1].ComponentRO<SimpleComponent>().number);
             });
         }
 
