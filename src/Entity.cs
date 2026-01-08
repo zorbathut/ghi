@@ -237,18 +237,7 @@ namespace Ghi
             dec.SetComponentOn(typeof(T), tranche, index, component);
         }
 
-        /// <summary>
-        /// Iterates through all components attached to this entity.
-        /// </summary>
-        /// <returns>An enumerable of all component instances on this entity.</returns>
-        /// <remarks>
-        /// Components are returned as boxed objects. This is intended for generic algorithms
-        /// that need to operate on all components without knowing their types in advance.
-        /// This really won't work if you want to write to structs.
-        ///
-        /// The iteration order matches the component order defined in the entity's EntityDec.
-        /// </remarks>
-        public IEnumerable<object> Components()
+        private IEnumerable<object> ComponentsInternal(bool readWrite)
         {
             Resolve();
 
@@ -266,10 +255,72 @@ namespace Ghi
                 yield break;
             }
 
-            foreach (var componentDec in dec.components)
+            for (int i = 0; i < dec.components.Count; i++)
             {
-                yield return dec.GetComponentFrom(componentDec.GetComputedType(), tranche, index);
+                var componentDec = dec.components[i];
+
+                if (componentDec.cow)
+                {
+                    // Get boxed Cow<T>, call GetRO/GetRW via reflection
+                    // This is pretty slow.
+                    var rawValue = tranche.components[i].GetValue(index);
+                    var method = componentDec.GetComputedType().GetMethod(readWrite ? "GetRW" : "GetRO");
+                    var innerValue = method.Invoke(rawValue, null);
+
+                    if (readWrite)
+                    {
+                        // Write back modified Cow (revision may have changed)
+                        tranche.components[i].SetValue(rawValue, index);
+                    }
+                    yield return innerValue;
+                }
+                else
+                {
+                    yield return dec.GetComponentFrom(componentDec.GetComputedType(), tranche, index);
+                }
             }
+        }
+
+        /// <summary>
+        /// Iterates through all components attached to this entity (read-only access).
+        /// </summary>
+        /// <returns>An enumerable of all component instances on this entity.</returns>
+        /// <remarks>
+        /// Components are returned as boxed objects in the order defined in the entity's EntityDec.
+        /// </remarks>
+        public IEnumerable<object> ComponentsRO()
+        {
+            return ComponentsInternal(readWrite: false);
+        }
+
+        /// <summary>
+        /// Iterates through all components attached to this entity (read-write access).
+        /// </summary>
+        /// <returns>An enumerable of all component instances on this entity.</returns>
+        /// <remarks>
+        /// For COW components, returns the unwrapped inner value, triggering a clone if needed.
+        /// Components are returned as boxed objects in the order defined in the entity's EntityDec.
+        /// This really won't work if you want to write to structs.
+        /// </remarks>
+        public IEnumerable<object> ComponentsRW()
+        {
+            return ComponentsInternal(readWrite: true);
+        }
+
+        /// <summary>
+        /// Iterates through components of type T attached to this entity (read-only access).
+        /// </summary>
+        public IEnumerable<T> ComponentsRO<T>()
+        {
+            return ComponentsRO().OfType<T>();
+        }
+
+        /// <summary>
+        /// Iterates through components of type T attached to this entity (read-write access).
+        /// </summary>
+        public IEnumerable<T> ComponentsRW<T>()
+        {
+            return ComponentsRW().OfType<T>();
         }
 
         internal void OnRemove()
@@ -468,21 +519,12 @@ namespace Ghi
             {
                 get
                 {
-                    var env = Environment.Current.Value;
-                    if (env == null)
+                    if (!entity.IsValid())
                     {
                         return null;
                     }
 
-                    entity.Resolve();
-
-                    (var dec, var tranche, var index) = entity.deferred?.Get() ?? env.Get(entity);
-                    if (dec == null)
-                    {
-                        return null;
-                    }
-
-                    return dec.components.Select(c => dec.GetComponentFrom(c.GetComputedType(), tranche, index)).ToArray();
+                    return entity.ComponentsRO().ToArray();
                 }
             }
         }

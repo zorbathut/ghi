@@ -403,7 +403,7 @@ namespace Ghi.Test
             using var envActive = new Environment.Scope(env);
 
             var entity = env.Add(EntityTemplateDecs.EntityModel);
-            var components = entity.Components().ToArray();
+            var components = entity.ComponentsRO().ToArray();
 
             Assert.AreEqual(1, components.Length);
             Assert.IsInstanceOf<SimpleComponent>(components[0]);
@@ -440,7 +440,7 @@ namespace Ghi.Test
             using var envActive = new Environment.Scope(env);
 
             var entity = env.Add(EntityTemplateDecs.EntityModel);
-            var components = entity.Components().ToArray();
+            var components = entity.ComponentsRO().ToArray();
 
             Assert.AreEqual(2, components.Length);
             Assert.IsInstanceOf<SimpleComponent>(components[0]);
@@ -480,10 +480,10 @@ namespace Ghi.Test
 
             var entity = env.Add(EntityTemplateDecs.EntityModel);
 
-            // Test that Components() works with LINQ
-            var simpleComponents = entity.Components().OfType<SimpleComponent>().ToArray();
-            var stringComponents = entity.Components().OfType<StringComponent>().ToArray();
-            var componentCount = entity.Components().Count();
+            // Test that ComponentsRO() works with LINQ
+            var simpleComponents = entity.ComponentsRO().OfType<SimpleComponent>().ToArray();
+            var stringComponents = entity.ComponentsRO().OfType<StringComponent>().ToArray();
+            var componentCount = entity.ComponentsRO().Count();
 
             Assert.AreEqual(1, simpleComponents.Length);
             Assert.AreEqual(1, stringComponents.Length);
@@ -538,6 +538,332 @@ namespace Ghi.Test
             // The deferred and resolved entities represent the same logical entity
             // Make sure they auto-resolve properly
             Assert.AreEqual(entityDeferred, entityResolved);
+        }
+
+        [Test]
+        public void ComponentsROGeneric()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""SimpleComp"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""StringComp"">
+                        <type>StringComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>SimpleComp</li>
+                            <li>StringComp</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(EntityTemplateDecs.EntityModel);
+
+            // Test ComponentsRO<T>() generic filtering
+            var simpleComponents = entity.ComponentsRO<SimpleComponent>().ToArray();
+            var stringComponents = entity.ComponentsRO<StringComponent>().ToArray();
+
+            Assert.AreEqual(1, simpleComponents.Length);
+            Assert.AreEqual(1, stringComponents.Length);
+            Assert.AreSame(entity.ComponentRO<SimpleComponent>(), simpleComponents[0]);
+            Assert.AreSame(entity.ComponentRO<StringComponent>(), stringComponents[0]);
+        }
+
+        [Test]
+        public void ComponentsRWGeneric()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(EntityTemplateDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""SimpleComp"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""StringComp"">
+                        <type>StringComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>SimpleComp</li>
+                            <li>StringComp</li>
+                        </components>
+                    </EntityDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(EntityTemplateDecs.EntityModel);
+
+            // Test ComponentsRW<T>() generic filtering
+            var simpleComponents = entity.ComponentsRW<SimpleComponent>().ToArray();
+            var stringComponents = entity.ComponentsRW<StringComponent>().ToArray();
+
+            Assert.AreEqual(1, simpleComponents.Length);
+            Assert.AreEqual(1, stringComponents.Length);
+            Assert.AreSame(entity.ComponentRW<SimpleComponent>(), simpleComponents[0]);
+            Assert.AreSame(entity.ComponentRW<StringComponent>(), stringComponents[0]);
+        }
+
+        public class CowTestComponent : Dec.IRecordable
+        {
+            public int value;
+
+            public void Record(Dec.Recorder recorder)
+            {
+                recorder.Record(ref value, nameof(value));
+            }
+        }
+
+        public static class CowInitSystem
+        {
+            public static void Execute(ref Cow<CowTestComponent> cowComponent)
+            {
+                cowComponent.Set(new CowTestComponent { value = 42 });
+            }
+        }
+
+        [Dec.StaticReferences]
+        public static class CowTestDecs
+        {
+            static CowTestDecs() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static EntityDec CowEntity;
+            public static EntityDec MixedEntity;
+            public static ProcessDec CowInitProcess;
+        }
+
+        [Test]
+        public void ComponentsROCow()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(CowTestDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""CowComp"">
+                        <type>CowTestComponent</type>
+                        <cow>true</cow>
+                    </ComponentDec>
+
+                    <EntityDec decName=""CowEntity"">
+                        <components>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <EntityDec decName=""MixedEntity"">
+                        <components>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""CowInitSystem"">
+                        <type>CowInitSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""CowInitProcess"">
+                        <order>
+                            <li>CowInitSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+
+            CowTestComponent cowOriginal;
+            {
+                using var envActive = new Environment.Scope(env);
+
+                var entity = env.Add(CowTestDecs.CowEntity);
+                env.Process(CowTestDecs.CowInitProcess);
+
+                // Get the COW component via ComponentsRO
+                var components = entity.ComponentsRO().ToArray();
+                Assert.AreEqual(1, components.Length);
+                Assert.IsInstanceOf<CowTestComponent>(components[0]);
+
+                cowOriginal = (CowTestComponent)components[0];
+                Assert.AreEqual(42, cowOriginal.value);
+            }
+
+            // Clone the environment
+            var envClone = Dec.Recorder.Clone(env);
+
+            {
+                using var envActive = new Environment.Scope(envClone);
+
+                var entity = envClone.List.First();
+
+                // ComponentsRO should return the same reference (no clone)
+                var components = entity.ComponentsRO().ToArray();
+                Assert.AreEqual(1, components.Length);
+                Assert.AreSame(cowOriginal, components[0]);
+            }
+        }
+
+        [Test]
+        public void ComponentsRWCow()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(CowTestDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""CowComp"">
+                        <type>CowTestComponent</type>
+                        <cow>true</cow>
+                    </ComponentDec>
+
+                    <EntityDec decName=""CowEntity"">
+                        <components>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <EntityDec decName=""MixedEntity"">
+                        <components>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""CowInitSystem"">
+                        <type>CowInitSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""CowInitProcess"">
+                        <order>
+                            <li>CowInitSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+
+            CowTestComponent cowOriginal;
+            {
+                using var envActive = new Environment.Scope(env);
+
+                var entity = env.Add(CowTestDecs.CowEntity);
+                env.Process(CowTestDecs.CowInitProcess);
+
+                // Get the original COW value
+                var components = entity.ComponentsRO().ToArray();
+                cowOriginal = (CowTestComponent)components[0];
+            }
+
+            // Clone the environment
+            var envClone = Dec.Recorder.Clone(env);
+
+            {
+                using var envActive = new Environment.Scope(envClone);
+
+                var entity = envClone.List.First();
+
+                // ComponentsRW should trigger a clone
+                var components = entity.ComponentsRW().ToArray();
+                Assert.AreEqual(1, components.Length);
+                var cowClone = (CowTestComponent)components[0];
+
+                // Should be a different reference (cloned)
+                Assert.AreNotSame(cowOriginal, cowClone);
+                // But same value
+                Assert.AreEqual(42, cowClone.value);
+
+                // Subsequent RO calls should return the cloned value
+                var componentsRO = entity.ComponentsRO().ToArray();
+                Assert.AreSame(cowClone, componentsRO[0]);
+            }
+        }
+
+        [Test]
+        public void ComponentsMixedCowAndNonCow()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(CowTestDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""SimpleComp"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <ComponentDec decName=""CowComp"">
+                        <type>CowTestComponent</type>
+                        <cow>true</cow>
+                    </ComponentDec>
+
+                    <EntityDec decName=""CowEntity"">
+                        <components>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <EntityDec decName=""MixedEntity"">
+                        <components>
+                            <li>SimpleComp</li>
+                            <li>CowComp</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""CowInitSystem"">
+                        <type>CowInitSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""CowInitProcess"">
+                        <order>
+                            <li>CowInitSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            var entity = env.Add(CowTestDecs.MixedEntity);
+            env.Process(CowTestDecs.CowInitProcess);
+
+            // Test ComponentsRO with mixed COW and non-COW components
+            var componentsRO = entity.ComponentsRO().ToArray();
+            Assert.AreEqual(2, componentsRO.Length);
+            Assert.IsInstanceOf<SimpleComponent>(componentsRO[0]);
+            Assert.IsInstanceOf<CowTestComponent>(componentsRO[1]);
+
+            // Test ComponentsRW with mixed COW and non-COW components
+            var componentsRW = entity.ComponentsRW().ToArray();
+            Assert.AreEqual(2, componentsRW.Length);
+            Assert.IsInstanceOf<SimpleComponent>(componentsRW[0]);
+            Assert.IsInstanceOf<CowTestComponent>(componentsRW[1]);
+
+            // Non-COW component should be the same reference
+            Assert.AreSame(componentsRO[0], componentsRW[0]);
+
+            // COW component accessed via RO vs RW (no clone since same environment)
+            // In the same environment, RW doesn't clone
+            Assert.AreSame(componentsRO[1], componentsRW[1]);
         }
     }
 }
