@@ -42,7 +42,7 @@ namespace Ghi
             {
                 if (recorder.Intent == Recorder.Purpose.Cloning)
                 {
-                    // just duplicate
+                    // just duplicate; null entries means this tranche was never initialized
                     recorder.Record(ref entries, "entries");
                     recorder.Record(ref components, "components");
 
@@ -54,22 +54,32 @@ namespace Ghi
                     // put at the top just to make the savefile more readable
                     recorder.Record(ref entity, "entity");
 
-                    // compile it down into an actual array
-                    Array[] writeComponents = new Array[components.Length];
-                    for (int j = 0; j < components.Length; ++j)
+                    if (entries == null)
                     {
-                        var compArray = Array.CreateInstance(components[j].GetType().GetElementType(), entries.Count);
-                        for (int i = 0; i < entries.Count; ++i)
-                        {
-                            compArray.SetValue(components[j].GetValue(i), i);
-                        }
-                        writeComponents[j] = compArray;
+                        // uninitialized tranche, write nulls
+                        recorder.Record(ref components, "components");
+                        recorder.Record(ref entries, "entries");
+                        recorder.Record(ref componentTypes, "componentTypes");
                     }
-                    recorder.Record(ref writeComponents, "components");
+                    else
+                    {
+                        // compile it down into an actual array
+                        Array[] writeComponents = new Array[components.Length];
+                        for (int j = 0; j < components.Length; ++j)
+                        {
+                            var compArray = Array.CreateInstance(components[j].GetType().GetElementType(), entries.Count);
+                            for (int i = 0; i < entries.Count; ++i)
+                            {
+                                compArray.SetValue(components[j].GetValue(i), i);
+                            }
+                            writeComponents[j] = compArray;
+                        }
+                        recorder.Record(ref writeComponents, "components");
 
-                    // we want to write only up to the active components length
-                    recorder.Record(ref entries, "entries");
-                    recorder.Record(ref componentTypes, "componentTypes");  // this is kind of redundant with the component arrays honestly
+                        // we want to write only up to the active components length
+                        recorder.Record(ref entries, "entries");
+                        recorder.Record(ref componentTypes, "componentTypes");  // this is kind of redundant with the component arrays honestly
+                    }
                 }
                 else if (recorder.Mode == Recorder.Direction.Read)
                 {
@@ -175,7 +185,7 @@ namespace Ghi
         {
             get
             {
-                return tranches.Select(t => t.entries.Count).Sum();
+                return tranches.Select(t => t.entries?.Count ?? 0).Sum();
             }
         }
 
@@ -183,7 +193,7 @@ namespace Ghi
         {
             get
             {
-                return tranches.SelectMany(t => t.entries).Concat(currentEntityAdded).Except(currentEntityRemoved);
+                return tranches.Where(t => t.entries != null).SelectMany(t => t.entries).Concat(currentEntityAdded).Except(currentEntityRemoved);
             }
         }
 
@@ -393,6 +403,14 @@ namespace Ghi
 
                         int trancheId = trancheLookups[i].trancheId;
 
+                        // skip this tranche if it hasn't been created yet (entries is null)
+                        var trancheEnd = il.DefineLabel();
+                        il.Emit(OpCodes.Ldarg_0);
+                        il.Emit(OpCodes.Ldc_I4, trancheId);
+                        il.Emit(OpCodes.Ldelema, typeof(Tranche));
+                        il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
+                        il.Emit(OpCodes.Brfalse, trancheEnd);
+
                         // first set up the arrays
                         var trancheRemapArray = trancheLookups[i].trancheRemap;
 
@@ -515,6 +533,9 @@ namespace Ghi
 
                         // Mark the end of the loop
                         il.MarkLabel(loopEnd);
+
+                        // Mark the end of the tranche (skip target for null entries)
+                        il.MarkLabel(trancheEnd);
                     }
 
                     // we done!
@@ -547,12 +568,8 @@ namespace Ghi
                 singletons[i] = Activator.CreateInstance(dec.GetComputedType());
             }
 
-            // create tranches
+            // create tranches array; individual tranches are created lazily on first entity add
             tranches = new Tranche[Dec.Database<EntityDec>.List.Length];
-            foreach ((var index, var entity) in Dec.Database<EntityDec>.List.OrderBy(ed => ed.DecName).Select((ed, i) => (i, ed)))
-            {
-                tranches[index] = CreateNewTranche(entity);
-            }
 
             // create status
             status = Status.Idle;
@@ -683,6 +700,11 @@ namespace Ghi
 
         private Entity AddNow(EntityDec dec, object[] components)
         {
+            if (tranches[dec.index].entries == null)
+            {
+                tranches[dec.index] = CreateNewTranche(dec);
+            }
+
             var tranche = tranches[dec.index];
             var trancheId = tranche.entries.Count();
 
@@ -957,10 +979,10 @@ namespace Ghi
                 {
                     var originalTranche = oldTranches.FirstOrDefault(t => t.entity == entityDecs[i]);
 
-                    if (originalTranche.components == null)
+                    if (originalTranche.components == null || originalTranche.entries == null)
                     {
-                        // welp, gotta create one
-                        originalTranche = CreateNewTranche(entityDecs[i]);
+                        // uninitialized tranche, leave it uninitialized
+                        continue;
                     }
                     else
                     {
