@@ -833,7 +833,7 @@ namespace Ghi.Test
 
                 Environment.Init();
                 Ghi.Environment env = default;
-                ExpectErrors(() => env = Dec.Recorder.Read<Ghi.Environment>(serialized));
+                ExpectErrors(() => env = Dec.Recorder.Read<Ghi.Environment>(serialized), err => err.Contains("Couldn't find") && err.Contains("EntityDec"));
                 using var envActive = new Environment.Scope(env);
 
                 // Should be down to two entities
@@ -1116,7 +1116,10 @@ namespace Ghi.Test
                     </ProcessDec>
                 </Decs>
             ");
-            ExpectErrors(() => parser.Finish());
+            ExpectErrors(() => parser.Finish(), err =>
+                err.Contains("ThisDoesntExist") ||
+                (err.Contains("BrokenSystem") && err.Contains("No defined type")) ||
+                (err.Contains("Process") && err.Contains("Order contains null or invalid systems")));
 
             Environment.Init();
             var env = new Environment();
@@ -1152,7 +1155,7 @@ namespace Ghi.Test
             ");
             parser.Finish();
 
-            ExpectErrors(() => Environment.Init());
+            ExpectErrors(() => Environment.Init(), err => err.Contains("No entity type matches") && err.Contains("BrokenSystem"));
             var env = new Environment();
             using var envActive = new Environment.Scope(env);
 

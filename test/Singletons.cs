@@ -96,7 +96,7 @@ namespace Ghi.Test
 
             ProcessEnvMode(env, envMode, env =>
             {
-                ExpectErrors(() => env.Process(Decs.TestProcess));
+                ExpectErrors(() => env.Process(Decs.TestProcess), err => err.Contains(nameof(System.InvalidOperationException)));
             });
         }
 

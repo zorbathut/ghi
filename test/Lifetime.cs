@@ -58,7 +58,7 @@ namespace Ghi.Test
 
                 Assert.IsNull(entityA.TryComponentRO<StringComponent>());
 
-                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()), err => err.Contains("Attempted to get dead entity"));
             });
 
             var entityB = env.Add(RemovalDecs.EntityModel);
@@ -75,8 +75,8 @@ namespace Ghi.Test
                 Assert.IsNull(entityA.TryComponentRO<StringComponent>());
                 Assert.IsNull(entityB.TryComponentRO<StringComponent>());
 
-                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()));
-                ExpectErrors(() => Assert.IsNull(entityB.ComponentRO<StringComponent>()));
+                ExpectErrors(() => Assert.IsNull(entityA.ComponentRO<StringComponent>()), err => err.Contains("Attempted to get dead entity"));
+                ExpectErrors(() => Assert.IsNull(entityB.ComponentRO<StringComponent>()), err => err.Contains("Attempted to get dead entity"));
             });
 
             var entityC = env.Add(RemovalDecs.EntityModel);
@@ -154,7 +154,7 @@ namespace Ghi.Test
             ProcessEnvMode(env, envMode, env =>
             {
                 Assert.IsNull(refA.TryGetRO());
-                ExpectErrors(() => Assert.IsNull(refA.GetRO()));
+                ExpectErrors(() => Assert.IsNull(refA.GetRO()), err => err.Contains("Attempted to get dead entity"));
             });
         }
 

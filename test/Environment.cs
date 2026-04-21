@@ -34,7 +34,7 @@ namespace Ghi.Test
                 Assert.IsNotNull(simp);
 
                 StringComponent str = null;
-                ExpectErrors(() => str = env.Singleton<StringComponent>());
+                ExpectErrors(() => str = env.Singleton<StringComponent>(), err => err.Contains("Attempted to access singleton") && err.Contains(nameof(StringComponent)));
                 Assert.IsNull(str);
             });
         }

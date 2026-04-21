@@ -73,6 +73,10 @@ namespace Ghi.Test
 
                 if (handlingWarnings)
                 {
+                    if (warningValidator != null)
+                    {
+                        Assert.IsTrue(warningValidator(str), $"Warning did not match expected predicate: {str}");
+                    }
                     handledWarning = true;
                 }
                 else
@@ -88,6 +92,10 @@ namespace Ghi.Test
 
                 if (handlingErrors)
                 {
+                    if (errorValidator != null)
+                    {
+                        Assert.IsTrue(errorValidator(str), $"Error did not match expected predicate: {str}");
+                    }
                     // If we're handling it, don't throw - this way we can validate that fallback behavior is working right
                     handledError = true;
                 }
@@ -175,20 +183,23 @@ namespace Ghi.Test
             withinExpect = false;
         }
 
-        protected void ExpectWarnings(Action action, string context = "unlabeled context", Func<string, bool> warningValidator = null)
+        protected void ExpectWarnings(Action action, Func<string, bool> warningValidator, string context = "unlabeled context")
         {
+            Assert.IsNotNull(warningValidator, "ExpectWarnings requires a validator predicate");
             ExpectGeneral(action, context, ExpectationType.Expect, warningValidator, ExpectationType.Disallow, null);
         }
 
         // Return "true" if this is the expected error, "false" if this is a bad error
-        protected void ExpectErrors(Action action, string context = "unlabeled context", Func<string, bool> errorValidator = null)
+        protected void ExpectErrors(Action action, Func<string, bool> errorValidator, string context = "unlabeled context")
         {
+            Assert.IsNotNull(errorValidator, "ExpectErrors requires a validator predicate");
             ExpectGeneral(action, context, ExpectationType.Disallow, null, ExpectationType.Expect, errorValidator);
         }
 
-        protected void ExpectWarningsAndErrors(Action action, string context = "unlabeled context",
-            Func<string, bool> warningValidator = null, Func<string, bool> errorValidator = null)
+        protected void ExpectWarningsAndErrors(Action action, Func<string, bool> warningValidator, Func<string, bool> errorValidator, string context = "unlabeled context")
         {
+            Assert.IsNotNull(warningValidator, "ExpectWarningsAndErrors requires a warning validator predicate");
+            Assert.IsNotNull(errorValidator, "ExpectWarningsAndErrors requires an error validator predicate");
             ExpectGeneral(action, context, ExpectationType.Expect, warningValidator, ExpectationType.Expect, errorValidator);
         }
 

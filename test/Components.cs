@@ -77,7 +77,7 @@ namespace Ghi.Test
             ProcessEnvMode(env, envMode, env =>
             {
                 Assert.AreSame(entityA.ComponentRO<SubclassBase>(), entityA.ComponentRO<SubclassDerived>());
-                ExpectErrors(() => entityB.ComponentRO<SubclassBase>());
+                ExpectErrors(() => entityB.ComponentRO<SubclassBase>(), err => err.Contains("Ambiguous component") && err.Contains(nameof(SubclassBase)));
             });
         }
 
@@ -168,7 +168,7 @@ namespace Ghi.Test
                     </EntityDec>
                 </Decs>
             ");
-            ExpectErrors(() =>parser.Finish());
+            ExpectErrors(() => parser.Finish(), err => err.Contains("ComponentFailure") && err.Contains("No defined type"));
 
             Environment.Init();
             var env = new Environment();
