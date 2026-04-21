@@ -8,7 +8,7 @@ namespace Ghi
     public struct Entity : Dec.IRecordable, IEquatable<Entity>
     {
         internal int id;
-        internal int hashCode; // put this here for better alignment; this is here *entirely* to allow using Entity as keys in Dictionaries without breaking everything when the entity is resolved
+        internal int stableId; // put this here for better alignment; monotonic per-environment counter assigned at creation. Stable across the deferred→resolved transition (so Entity works as a Dictionary key) and deterministic across cloned environments (so StableComparer has a unique key even when id/gen are still 0).
         internal long gen; // 32-bit gives us 2.1 years, and someone is gonna want to run a server longer than that
 
         private Environment.EntityDeferred deferred;
@@ -18,23 +18,23 @@ namespace Ghi
             this.id = 0;
             this.gen = 0;
             this.deferred = null;
-            this.hashCode = 0x7e117a1e; // random arbitrary hex word
+            this.stableId = 0;
         }
-        internal Entity(Environment.EntityDeferred deferred, int hashCode)
+        internal Entity(Environment.EntityDeferred deferred, int stableId)
         {
             this.id = 0;
             this.gen = 0;
-            this.hashCode = hashCode;
+            this.stableId = stableId;
             this.deferred = deferred;
 
             // this data structure gives me a headache
             this.deferred.tranche.entries.Add(this);
         }
-        internal Entity(int id, long gen, int hashCode)
+        internal Entity(int id, long gen, int stableId)
         {
             this.id = id;
             this.gen = gen;
-            this.hashCode = hashCode;
+            this.stableId = stableId;
             this.deferred = null;
         }
 
@@ -438,7 +438,7 @@ namespace Ghi
 
         public override int GetHashCode()
         {
-            return hashCode;
+            return stableId;
         }
 
         public void Record(Dec.Recorder recorder)
@@ -448,7 +448,12 @@ namespace Ghi
 
             recorder.Record(ref id, "id");
             recorder.Record(ref gen, "gen");
-            recorder.Record(ref hashCode, "hashCode");
+            if (recorder.Mode == Dec.Recorder.Direction.Read && recorder.Intent != Dec.Recorder.Purpose.Cloning)
+            {
+                // Pre-stableId saves used "hashCode": a deterministic 32-bit value written identically to every reference of the same entity, so loading it as stableId preserves cross-reference consistency. Environment.Record bumps stableIdCounter past any loaded values so future creations don't collide. New "stableId" tag is read second so it wins if both are present.
+                recorder.Record(ref stableId, "hashCode");
+            }
+            recorder.Record(ref stableId, "stableId");
         }
 
         internal enum Status
@@ -526,6 +531,18 @@ namespace Ghi
 
                     return entity.ComponentsRO().ToArray();
                 }
+            }
+        }
+
+        // Deterministic, stable comparer over stableId. Exposed as an opt-in comparer rather than IComparable<Entity> so callers must explicitly ask for ordering — Entity is not generally ordered. Useful when order across save/load or across peers matters (e.g. shipping game state in multiplayer). Works for deferred entities (id/gen not yet assigned) because stableId is assigned at creation.
+        // We don't really have a fallback for id collisions. Post-stableid, this shouldn't be a problem since IDs are assigned consecutively and we *should* have enough of them (todo increase to 64-bit if we don't?), but if you're porting an old Environment over, then they're going to be distributed randomly.
+        // It is unclear how to fix this.
+        public static readonly IComparer<Entity> StableComparer = new StableComparerImpl();
+        private class StableComparerImpl : IComparer<Entity>
+        {
+            public int Compare(Entity a, Entity b)
+            {
+                return a.stableId.CompareTo(b.stableId);
             }
         }
     }

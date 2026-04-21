@@ -115,15 +115,10 @@ namespace Ghi
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
 
-        // PRNG used for generating consistent Entity codes
-        // This will not work when we add multithread support, we'll have to do something git-hash-tree-like
-        private uint prngState = 0x12345678;
-        private int Xorshift32() {
-            prngState ^= prngState << 13;
-            prngState ^= prngState >> 17;
-            prngState ^= prngState << 5;
-            return (int)prngState;
-        }
+        // Monotonic counter used to assign Entity.stableId at creation. Deterministic across cloned environments because it's serialized with env state.
+        // Starts at an arbitrary non-zero value so default(Entity) (stableId == 0) doesn't collide with any real entity's hash.
+        // Not thread-safe; will need revisiting alongside multithread support.
+        private int stableIdCounter = 0x7e117a1e;
 
         // if someone makes more than 64 bits of Environments then I salute you
         // we start at 1 because Cow, as a struct, will sometimes initialize to 0.
@@ -658,7 +653,7 @@ namespace Ghi
             switch (status)
             {
                 case Status.Idle:
-                    return AddNow(dec, resultComponents);
+                    return AddNow(dec, resultComponents, ++stableIdCounter);
                 case Status.Processing:
                     var entityDeferred = new EntityDeferred();
                     entityDeferred.dec = dec;
@@ -679,6 +674,8 @@ namespace Ghi
                     // do this late because it's a struct
                     entityDeferred.tranche = tranche;
 
+                    // Assign stableId once; phase-end AddNow reuses it so the deferred struct and its resolved tranche entry share the same stableId (and therefore the same sort key / hash).
+                    int deferredStableId = ++stableIdCounter;
                     phaseEndActions.Add(() =>
                     {
                         var currentComponents = new object[dec.components.Count];
@@ -687,9 +684,9 @@ namespace Ghi
                         {
                             currentComponents[i] = tranche.components[i].GetValue(0);
                         }
-                        entityDeferred.replacement = AddNow(dec, currentComponents);
+                        entityDeferred.replacement = AddNow(dec, currentComponents, deferredStableId);
                     });
-                    var resultEntity = new Entity(entityDeferred, Xorshift32());
+                    var resultEntity = new Entity(entityDeferred, deferredStableId);
                     currentEntityAdded.Add(resultEntity);
                     return resultEntity;
                 default:
@@ -698,7 +695,7 @@ namespace Ghi
             }
         }
 
-        private Entity AddNow(EntityDec dec, object[] components)
+        private Entity AddNow(EntityDec dec, object[] components, int stableId)
         {
             if (tranches[dec.index].entries == null)
             {
@@ -737,7 +734,7 @@ namespace Ghi
                 entityLookup.Add(new EntityLookup() { dec = dec, index = trancheId, gen = 1 });
             }
 
-            var entity = new Entity(id, entityLookup[id].gen, Xorshift32());
+            var entity = new Entity(id, entityLookup[id].gen, stableId);
             tranche.entries.Add(entity);
 
             return entity;
@@ -958,7 +955,7 @@ namespace Ghi
             recorder.Record(ref entityLookup, "entityLookup");
             recorder.Record(ref entityFreeList, "entityFreeList");
             recorder.Record(ref singletons, "singletons");
-            recorder.Record(ref prngState, "prngState");
+            recorder.Record(ref stableIdCounter, "stableIdCounter");
 
             if (recorder.Intent == Dec.Recorder.Purpose.Cloning)
             {
