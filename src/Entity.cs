@@ -97,6 +97,11 @@ namespace Ghi
 
         public bool HasComponent<T>()
         {
+            return HasComponent(typeof(T));
+        }
+
+        public bool HasComponent(Type type)
+        {
             var env = Environment.Current.Value;
             if (env == null)
             {
@@ -112,7 +117,7 @@ namespace Ghi
                 return false;
             }
 
-            return dec.HasComponent(typeof(T));
+            return dec.HasComponent(type);
         }
 
         private T Component<T>()

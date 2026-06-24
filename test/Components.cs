@@ -125,6 +125,13 @@ namespace Ghi.Test
 
                 Assert.IsTrue(!entityB.HasComponent<SubclassDerived>());
                 Assert.IsTrue(entityB.HasComponent<SubclassDerivedAlternate>());
+
+                // runtime-Type overload should agree with the generic form
+                Assert.IsTrue(entityA.HasComponent(typeof(SubclassDerived)));
+                Assert.IsTrue(!entityA.HasComponent(typeof(SubclassDerivedAlternate)));
+
+                Assert.IsTrue(!entityB.HasComponent(typeof(SubclassDerived)));
+                Assert.IsTrue(entityB.HasComponent(typeof(SubclassDerivedAlternate)));
             });
         }
 
@@ -176,7 +183,8 @@ namespace Ghi.Test
 
             var entityA = env.Add(Decs.EntityModelA);
 
-            Assert.IsFalse(entityA.HasComponent(null));
+            Assert.IsFalse(entityA.HasComponent((ComponentDec)null));
+            Assert.IsFalse(entityA.HasComponent((System.Type)null));
             Assert.IsFalse(entityA.HasComponent<NotAComponent>());
             Assert.IsFalse(entityA.HasComponent(HasComponentErrorDecs.ComponentFailure));
         }
