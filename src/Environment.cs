@@ -196,6 +196,9 @@ namespace Ghi
         {
             var DbgEx = typeof(Dbg).GetMethod("Ex", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
 
+            // Decided once, here, so a single Init() is internally consistent: every system either emits or doesn't.
+            bool useEmit = Config.ShouldEmit;
+
             indexToEntityDec = Dec.Database<Ghi.EntityDec>.List.OrderBy(dec => dec.DecName).ToArray();
             foreach((var dec, int i) in indexToEntityDec.Select((dec, i) => (dec, i)))
             {
@@ -236,38 +239,16 @@ namespace Ghi
                         // it can!
                         // somewhat surprised tbqh
 
-                        // build our artificial IL function
-                        var dynamicMethod = new DynamicMethod($"ExecuteSystem{dec.DecName}",
-                            typeof(void),
-                            new Type[] { typeof(Tranche[]), typeof(object[]), typeof(Action) },
-                            true);
-                        System.Reflection.Emit.ILGenerator il = dynamicMethod.GetILGenerator();
-
-                        // needs to start and end with the same number of parameters, so let's just do this within the exception block
-                        var ex = il.BeginExceptionBlock();
-
-                        // read all the singletons
+                        // figure out, per parameter, which singleton slot it reads from
+                        var singletonSources = new int[parameters.Length];
                         for (int i = 0; i < parameters.Length; ++i)
                         {
-                            il.Emit(OpCodes.Ldarg_1);
-                            il.Emit(OpCodes.Ldc_I4, allSingletons.FirstIndexOf(singleton => singleton == parameterDirectMatches[i][0].c));
-                            il.Emit(OpCodes.Ldelem_Ref);
+                            singletonSources[i] = allSingletons.FirstIndexOf(singleton => singleton == parameterDirectMatches[i][0].c);
                         }
-                        il.Emit(OpCodes.Call, method);
 
-                        il.BeginCatchBlock(typeof(Exception));
-                        // whoops something went wrong
-                        il.Emit(OpCodes.Call, DbgEx);
-                        il.EndExceptionBlock();
-
-                        // clean up
-                        il.Emit(OpCodes.Ldarg_2);
-                        il.Emit(OpCodes.Callvirt, typeof(Action).GetMethod("Invoke"));
-
-                        // and we're done with the singleton-only path!
-                        il.Emit(OpCodes.Ret);
-
-                        dec.process = (Action<Tranche[], object[], Action>)dynamicMethod.CreateDelegate(typeof(Action<Tranche[], object[], Action>));
+                        dec.process = useEmit
+                            ? BuildSingletonProcessEmit(dec.DecName, method, singletonSources, DbgEx)
+                            : BuildSingletonProcessReflect(method, singletonSources);
 
                         // NEXT.
                         continue;
@@ -355,188 +336,9 @@ namespace Ghi
                     var singletonLookup = trancheDat[0].singletonRemap;
                     var trancheLookups = trancheDat.Select(tdo => (tdo.trancheId, tdo.trancheRemap)).ToArray();
 
-                    // build our artificial IL function
-                    var dynamicMethod = new DynamicMethod($"ExecuteSystem{dec.DecName}",
-                        typeof(void),
-                        new Type[] { typeof(Tranche[]), typeof(object[]), typeof(Action) },
-                        true);
-                    System.Reflection.Emit.ILGenerator il = dynamicMethod.GetILGenerator();
-
-                    // yank singletons out and apply appropriate casting
-                    // we're making an array based on our parameter order so we can fill it in later
-                    Action<int>[] singletonLookups = new Action<int>[parameters.Length];
-                    for (int i = 0; i < singletonLookup.Length; ++i)
-                    {
-                        il.Emit(OpCodes.Ldarg_1);
-
-                        // this can be more optimized for size
-                        il.Emit(OpCodes.Ldc_I4, singletonLookup[i].from);
-
-                        // use a ref so we're not copying structs around
-                        il.Emit(OpCodes.Ldelem_Ref);
-
-                        var local = il.DeclareLocal(parameters[singletonLookup[i].to]);
-                        il.Emit(OpCodes.Stloc, local);
-
-                        singletonLookups[singletonLookup[i].to] = index =>
-                        {
-                            il.Emit(OpCodes.Ldloc, local);
-                        };
-                    }
-
-                    // singletons should now be in an appropriate type, and local, which is probably the fastest solution
-                    // but there might be better options!
-
-                    // now loop through all the tranches, we'll generate IL for each one
-                    for (int i = 0; i < trancheLookups.Length; ++i)
-                    {
-                        // we'll be using temp values that we want to eliminate after this, so we'll just use a scope for it
-                        // whoops we can't do that
-                        // well uh
-                        // figure this out later
-                        //il.BeginScope();
-
-                        int trancheId = trancheLookups[i].trancheId;
-
-                        // skip this tranche if it hasn't been created yet (entries is null)
-                        var trancheEnd = il.DefineLabel();
-                        il.Emit(OpCodes.Ldarg_0);
-                        il.Emit(OpCodes.Ldc_I4, trancheId);
-                        il.Emit(OpCodes.Ldelema, typeof(Tranche));
-                        il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
-                        il.Emit(OpCodes.Brfalse, trancheEnd);
-
-                        // first set up the arrays
-                        var trancheRemapArray = trancheLookups[i].trancheRemap;
-
-                        // remap the components
-                        Action<int>[] lookups = (Action<int>[])singletonLookups.Clone();
-                        for (int j = 0; j < trancheRemapArray.Length; ++j)
-                        {
-                            il.Emit(OpCodes.Ldarg_0);
-                            il.Emit(OpCodes.Ldc_I4, trancheId);
-                            il.Emit(OpCodes.Ldelema, typeof(Tranche));
-
-                            int from = trancheRemapArray[j].from;
-                            if (from == -1)
-                            {
-                                // grab the entries field
-                                il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
-
-                                // shove this into another local
-                                var local = il.DeclareLocal(typeof(List<Entity>));
-                                il.Emit(OpCodes.Stloc, local);
-
-                                // and then we'll just use a lambda to grab it later
-                                lookups[trancheRemapArray[j].to] = index =>
-                                {
-                                    il.Emit(OpCodes.Ldloc, local);
-                                    il.Emit(OpCodes.Ldloc, index);
-                                    il.Emit(OpCodes.Callvirt, typeof(List<Entity>).GetMethod("get_Item"));
-                                };
-                            }
-                            else
-                            {
-                                // grab the appropriate components array
-                                il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("components"));
-                                il.Emit(OpCodes.Ldc_I4, from);
-                                il.Emit(OpCodes.Ldelem_Ref);
-
-                                // get the appropriate array type so we can avoid casts at runtime
-                                // we pull this out of the entity type, not our parameter types; implicit casting on the function call is (probably?) cheaper than messing around with arrays
-                                var itemType = allEntities[trancheId].components[from].GetComputedType();
-                                var arrayType = itemType.MakeArrayType();
-                                var local = il.DeclareLocal(arrayType);
-                                il.Emit(OpCodes.Castclass, arrayType);
-                                il.Emit(OpCodes.Stloc, local);
-
-                                // and then we'll just use a lambda to grab it later
-                                var parameter = parameters[trancheRemapArray[j].to];
-                                lookups[trancheRemapArray[j].to] = index =>
-                                {
-                                    il.Emit(OpCodes.Ldloc, local);
-                                    il.Emit(OpCodes.Ldloc, index);
-
-                                    if (parameter.IsByRef)
-                                    {
-                                        il.Emit(OpCodes.Ldelema, itemType);
-                                    }
-                                    else
-                                    {
-                                        il.Emit(OpCodes.Ldelem, itemType);
-                                    }
-                                };
-                            }
-                        }
-
-                        // Store the length of the entries array, this is our loop length
-
-                        il.Emit(OpCodes.Ldarg_0);
-                        il.Emit(OpCodes.Ldc_I4, trancheId);
-                        il.Emit(OpCodes.Ldelema, typeof(Tranche));
-                        il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
-                        il.Emit(OpCodes.Callvirt, typeof(List<Entity>).GetProperty("Count").GetGetMethod());
-                        var entitylistlen = il.DeclareLocal(typeof(int));
-                        il.Emit(OpCodes.Stloc, entitylistlen);
-
-                        // working index
-                        var index = il.DeclareLocal(typeof(int));
-                        il.Emit(OpCodes.Ldc_I4_0);
-                        il.Emit(OpCodes.Stloc, index);
-
-                        // loop positions
-                        var loopStart = il.DefineLabel();
-                        var loopEnd = il.DefineLabel();
-
-                        // start of the loop
-                        il.MarkLabel(loopStart);
-
-                        // Compare index with entitylistlen
-                        il.Emit(OpCodes.Ldloc, index);
-                        il.Emit(OpCodes.Ldloc, entitylistlen);
-
-                        il.Emit(OpCodes.Bge, loopEnd); // If index >= entitylistlen, jump to loopEnd
-
-                        // Get ready to make the actual call
-                        // needs to start and end with the same number of parameters, so let's just do this within the exception block
-                        var ex = il.BeginExceptionBlock();
-
-                        // read all the parameters
-                        for (int paramIndex = 0; paramIndex < lookups.Length; ++paramIndex)
-                        {
-                            lookups[paramIndex](index.LocalIndex);
-                        }
-                        il.Emit(OpCodes.Call, method);
-
-                        il.BeginCatchBlock(typeof(Exception));
-                        // whoops something went wrong
-                        il.Emit(OpCodes.Call, DbgEx);
-                        il.EndExceptionBlock();
-
-                        // clean up our notes on which objects exist
-                        il.Emit(OpCodes.Ldarg_2);
-                        il.Emit(OpCodes.Callvirt, typeof(Action).GetMethod("Invoke"));
-
-                        // Increment the loop index
-                        il.Emit(OpCodes.Ldloc, index);
-                        il.Emit(OpCodes.Ldc_I4_1);
-                        il.Emit(OpCodes.Add);
-                        il.Emit(OpCodes.Stloc, index);
-
-                        // Jump back to the start of the loop
-                        il.Emit(OpCodes.Br, loopStart);
-
-                        // Mark the end of the loop
-                        il.MarkLabel(loopEnd);
-
-                        // Mark the end of the tranche (skip target for null entries)
-                        il.MarkLabel(trancheEnd);
-                    }
-
-                    // we done!
-                    il.Emit(OpCodes.Ret);
-
-                    dec.process = (Action<Tranche[], object[], Action>)dynamicMethod.CreateDelegate(typeof(Action<Tranche[], object[], Action>));
+                    dec.process = useEmit
+                        ? BuildTrancheProcessEmit(dec.DecName, method, parameters, singletonLookup, trancheLookups, allEntities, DbgEx)
+                        : BuildTrancheProcessReflect(method, parameters, singletonLookup, trancheLookups);
                 }
                 else
                 {
@@ -547,6 +349,356 @@ namespace Ghi
                     dec.process = (tranches, singletons, action) => { };
                 }
             }
+        }
+
+        // Singleton-only systems: every parameter is satisfied by a singleton, so there's no per-entity iteration.
+        // Emitted variant: read each singleton out of the array and call straight through.
+        private static Action<Tranche[], object[], Action> BuildSingletonProcessEmit(
+            string systemName,
+            System.Reflection.MethodInfo method,
+            int[] singletonSources,
+            System.Reflection.MethodInfo dbgEx)
+        {
+            // build our artificial IL function
+            var dynamicMethod = new DynamicMethod($"ExecuteSystem{systemName}",
+                typeof(void),
+                new Type[] { typeof(Tranche[]), typeof(object[]), typeof(Action) },
+                true);
+            System.Reflection.Emit.ILGenerator il = dynamicMethod.GetILGenerator();
+
+            // needs to start and end with the same number of parameters, so let's just do this within the exception block
+            il.BeginExceptionBlock();
+
+            // read all the singletons
+            for (int i = 0; i < singletonSources.Length; ++i)
+            {
+                il.Emit(OpCodes.Ldarg_1);
+                il.Emit(OpCodes.Ldc_I4, singletonSources[i]);
+                il.Emit(OpCodes.Ldelem_Ref);
+            }
+            il.Emit(OpCodes.Call, method);
+
+            il.BeginCatchBlock(typeof(Exception));
+            // whoops something went wrong
+            il.Emit(OpCodes.Call, dbgEx);
+            il.EndExceptionBlock();
+
+            // clean up
+            il.Emit(OpCodes.Ldarg_2);
+            il.Emit(OpCodes.Callvirt, typeof(Action).GetMethod("Invoke"));
+
+            // and we're done with the singleton-only path!
+            il.Emit(OpCodes.Ret);
+
+            return (Action<Tranche[], object[], Action>)dynamicMethod.CreateDelegate(typeof(Action<Tranche[], object[], Action>));
+        }
+
+        // Reflection variant of the singleton-only path; equivalent to BuildSingletonProcessEmit without dynamic code.
+        private static Action<Tranche[], object[], Action> BuildSingletonProcessReflect(
+            System.Reflection.MethodInfo method,
+            int[] singletonSources)
+        {
+            return (tranches, singletons, action) =>
+            {
+                try
+                {
+                    var args = new object[singletonSources.Length];
+                    for (int i = 0; i < singletonSources.Length; ++i)
+                    {
+                        args[i] = singletons[singletonSources[i]];
+                    }
+                    method.Invoke(null, args);
+                }
+                catch (System.Reflection.TargetInvocationException e)
+                {
+                    // unwrap so we report the system's own exception, matching the emitted path
+                    Dbg.Ex(e.InnerException ?? e);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
+
+                action();
+            };
+        }
+
+        // General systems: iterate every matching tranche and call the system once per entity, feeding it singletons,
+        // components (by value or ref), and the Entity handle as appropriate.
+        // Emitted variant: specialize a tight loop per tranche.
+        private static Action<Tranche[], object[], Action> BuildTrancheProcessEmit(
+            string systemName,
+            System.Reflection.MethodInfo method,
+            Type[] parameters,
+            (int from, int to)[] singletonLookup,
+            (int trancheId, (int from, int to)[] trancheRemap)[] trancheLookups,
+            EntityDec[] allEntities,
+            System.Reflection.MethodInfo dbgEx)
+        {
+            // build our artificial IL function
+            var dynamicMethod = new DynamicMethod($"ExecuteSystem{systemName}",
+                typeof(void),
+                new Type[] { typeof(Tranche[]), typeof(object[]), typeof(Action) },
+                true);
+            System.Reflection.Emit.ILGenerator il = dynamicMethod.GetILGenerator();
+
+            // yank singletons out and apply appropriate casting
+            // we're making an array based on our parameter order so we can fill it in later
+            Action<int>[] singletonLookups = new Action<int>[parameters.Length];
+            for (int i = 0; i < singletonLookup.Length; ++i)
+            {
+                il.Emit(OpCodes.Ldarg_1);
+
+                // this can be more optimized for size
+                il.Emit(OpCodes.Ldc_I4, singletonLookup[i].from);
+
+                // use a ref so we're not copying structs around
+                il.Emit(OpCodes.Ldelem_Ref);
+
+                var local = il.DeclareLocal(parameters[singletonLookup[i].to]);
+                il.Emit(OpCodes.Stloc, local);
+
+                singletonLookups[singletonLookup[i].to] = index =>
+                {
+                    il.Emit(OpCodes.Ldloc, local);
+                };
+            }
+
+            // singletons should now be in an appropriate type, and local, which is probably the fastest solution
+            // but there might be better options!
+
+            // now loop through all the tranches, we'll generate IL for each one
+            for (int i = 0; i < trancheLookups.Length; ++i)
+            {
+                // we'll be using temp values that we want to eliminate after this, so we'll just use a scope for it
+                // whoops we can't do that
+                // well uh
+                // figure this out later
+                //il.BeginScope();
+
+                int trancheId = trancheLookups[i].trancheId;
+
+                // skip this tranche if it hasn't been created yet (entries is null)
+                var trancheEnd = il.DefineLabel();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldc_I4, trancheId);
+                il.Emit(OpCodes.Ldelema, typeof(Tranche));
+                il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
+                il.Emit(OpCodes.Brfalse, trancheEnd);
+
+                // first set up the arrays
+                var trancheRemapArray = trancheLookups[i].trancheRemap;
+
+                // remap the components
+                Action<int>[] lookups = (Action<int>[])singletonLookups.Clone();
+                for (int j = 0; j < trancheRemapArray.Length; ++j)
+                {
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldc_I4, trancheId);
+                    il.Emit(OpCodes.Ldelema, typeof(Tranche));
+
+                    int from = trancheRemapArray[j].from;
+                    if (from == -1)
+                    {
+                        // grab the entries field
+                        il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
+
+                        // shove this into another local
+                        var local = il.DeclareLocal(typeof(List<Entity>));
+                        il.Emit(OpCodes.Stloc, local);
+
+                        // and then we'll just use a lambda to grab it later
+                        lookups[trancheRemapArray[j].to] = index =>
+                        {
+                            il.Emit(OpCodes.Ldloc, local);
+                            il.Emit(OpCodes.Ldloc, index);
+                            il.Emit(OpCodes.Callvirt, typeof(List<Entity>).GetMethod("get_Item"));
+                        };
+                    }
+                    else
+                    {
+                        // grab the appropriate components array
+                        il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("components"));
+                        il.Emit(OpCodes.Ldc_I4, from);
+                        il.Emit(OpCodes.Ldelem_Ref);
+
+                        // get the appropriate array type so we can avoid casts at runtime
+                        // we pull this out of the entity type, not our parameter types; implicit casting on the function call is (probably?) cheaper than messing around with arrays
+                        var itemType = allEntities[trancheId].components[from].GetComputedType();
+                        var arrayType = itemType.MakeArrayType();
+                        var local = il.DeclareLocal(arrayType);
+                        il.Emit(OpCodes.Castclass, arrayType);
+                        il.Emit(OpCodes.Stloc, local);
+
+                        // and then we'll just use a lambda to grab it later
+                        var parameter = parameters[trancheRemapArray[j].to];
+                        lookups[trancheRemapArray[j].to] = index =>
+                        {
+                            il.Emit(OpCodes.Ldloc, local);
+                            il.Emit(OpCodes.Ldloc, index);
+
+                            if (parameter.IsByRef)
+                            {
+                                il.Emit(OpCodes.Ldelema, itemType);
+                            }
+                            else
+                            {
+                                il.Emit(OpCodes.Ldelem, itemType);
+                            }
+                        };
+                    }
+                }
+
+                // Store the length of the entries array, this is our loop length
+
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldc_I4, trancheId);
+                il.Emit(OpCodes.Ldelema, typeof(Tranche));
+                il.Emit(OpCodes.Ldfld, typeof(Tranche).GetField("entries"));
+                il.Emit(OpCodes.Callvirt, typeof(List<Entity>).GetProperty("Count").GetGetMethod());
+                var entitylistlen = il.DeclareLocal(typeof(int));
+                il.Emit(OpCodes.Stloc, entitylistlen);
+
+                // working index
+                var index = il.DeclareLocal(typeof(int));
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Stloc, index);
+
+                // loop positions
+                var loopStart = il.DefineLabel();
+                var loopEnd = il.DefineLabel();
+
+                // start of the loop
+                il.MarkLabel(loopStart);
+
+                // Compare index with entitylistlen
+                il.Emit(OpCodes.Ldloc, index);
+                il.Emit(OpCodes.Ldloc, entitylistlen);
+
+                il.Emit(OpCodes.Bge, loopEnd); // If index >= entitylistlen, jump to loopEnd
+
+                // Get ready to make the actual call
+                // needs to start and end with the same number of parameters, so let's just do this within the exception block
+                il.BeginExceptionBlock();
+
+                // read all the parameters
+                for (int paramIndex = 0; paramIndex < lookups.Length; ++paramIndex)
+                {
+                    lookups[paramIndex](index.LocalIndex);
+                }
+                il.Emit(OpCodes.Call, method);
+
+                il.BeginCatchBlock(typeof(Exception));
+                // whoops something went wrong
+                il.Emit(OpCodes.Call, dbgEx);
+                il.EndExceptionBlock();
+
+                // clean up our notes on which objects exist
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Callvirt, typeof(Action).GetMethod("Invoke"));
+
+                // Increment the loop index
+                il.Emit(OpCodes.Ldloc, index);
+                il.Emit(OpCodes.Ldc_I4_1);
+                il.Emit(OpCodes.Add);
+                il.Emit(OpCodes.Stloc, index);
+
+                // Jump back to the start of the loop
+                il.Emit(OpCodes.Br, loopStart);
+
+                // Mark the end of the loop
+                il.MarkLabel(loopEnd);
+
+                // Mark the end of the tranche (skip target for null entries)
+                il.MarkLabel(trancheEnd);
+            }
+
+            // we done!
+            il.Emit(OpCodes.Ret);
+
+            return (Action<Tranche[], object[], Action>)dynamicMethod.CreateDelegate(typeof(Action<Tranche[], object[], Action>));
+        }
+
+        // Reflection variant of the general path; equivalent to BuildTrancheProcessEmit without dynamic code.
+        private static Action<Tranche[], object[], Action> BuildTrancheProcessReflect(
+            System.Reflection.MethodInfo method,
+            Type[] parameters,
+            (int from, int to)[] singletonLookup,
+            (int trancheId, (int from, int to)[] trancheRemap)[] trancheLookups)
+        {
+            // Which parameters are by-ref, so we know whether to copy a (possibly mutated) component back into its array.
+            var byRef = new bool[parameters.Length];
+            for (int i = 0; i < parameters.Length; ++i)
+            {
+                byRef[i] = parameters[i].IsByRef;
+            }
+
+            return (tranches, singletons, action) =>
+            {
+                var args = new object[parameters.Length];
+
+                // singletons are the same for every entity, so resolve them once
+                for (int i = 0; i < singletonLookup.Length; ++i)
+                {
+                    args[singletonLookup[i].to] = singletons[singletonLookup[i].from];
+                }
+
+                for (int t = 0; t < trancheLookups.Length; ++t)
+                {
+                    var tranche = tranches[trancheLookups[t].trancheId];
+
+                    // skip this tranche if it hasn't been created yet (entries is null)
+                    if (tranche.entries == null)
+                    {
+                        continue;
+                    }
+
+                    var trancheRemap = trancheLookups[t].trancheRemap;
+                    int count = tranche.entries.Count;
+                    for (int index = 0; index < count; ++index)
+                    {
+                        // fill in this entity's per-entity parameters (Entity handle or component value)
+                        for (int j = 0; j < trancheRemap.Length; ++j)
+                        {
+                            int from = trancheRemap[j].from;
+                            if (from == -1)
+                            {
+                                args[trancheRemap[j].to] = tranche.entries[index];
+                            }
+                            else
+                            {
+                                args[trancheRemap[j].to] = tranche.components[from].GetValue(index);
+                            }
+                        }
+
+                        try
+                        {
+                            method.Invoke(null, args);
+
+                            // copy back any by-ref components so ref mutations stick, matching the emitted path's in-place writes
+                            for (int j = 0; j < trancheRemap.Length; ++j)
+                            {
+                                int from = trancheRemap[j].from;
+                                if (from != -1 && byRef[trancheRemap[j].to])
+                                {
+                                    tranche.components[from].SetValue(args[trancheRemap[j].to], index);
+                                }
+                            }
+                        }
+                        catch (System.Reflection.TargetInvocationException e)
+                        {
+                            // unwrap so we report the system's own exception, matching the emitted path
+                            Dbg.Ex(e.InnerException ?? e);
+                        }
+                        catch (Exception e)
+                        {
+                            Dbg.Ex(e);
+                        }
+
+                        action();
+                    }
+                }
+            };
         }
 
         public Environment()

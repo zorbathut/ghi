@@ -5,9 +5,10 @@ using System.Linq;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class StableComparerTest : Base
     {
+        public StableComparerTest(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class Decs
         {

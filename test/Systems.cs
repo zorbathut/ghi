@@ -4,9 +4,10 @@ using NUnit.Framework;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class Systems : Base
     {
+        public Systems(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class Decs
         {

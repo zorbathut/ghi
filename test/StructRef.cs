@@ -4,6 +4,8 @@ using NUnit.Framework;
 namespace Ghi.Test;
 public class StructRef : Base
 {
+    public StructRef(EmitMode emitMode) : base(emitMode) { }
+
     [Dec.StaticReferences]
     public static class Decs
     {

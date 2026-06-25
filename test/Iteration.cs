@@ -4,9 +4,10 @@ using System.Linq;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class Iteration : Base
     {
+        public Iteration(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class Decs
         {

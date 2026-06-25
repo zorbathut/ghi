@@ -2,9 +2,10 @@ using NUnit.Framework;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class EnvironmentTest : Base
     {
+        public EnvironmentTest(EmitMode emitMode) : base(emitMode) { }
+
 	    [Test]
 	    public void Singleton([Values] EnvironmentMode envMode)
 	    {

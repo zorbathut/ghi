@@ -4,9 +4,10 @@ using System.Linq;
 namespace Ghi.Test
 {
 
-    [TestFixture]
     public class EntityTest : Base
     {
+        public EntityTest(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class EntityTemplateDecs
         {

@@ -3,9 +3,10 @@ namespace Ghi.Test;
 
 using NUnit.Framework;
 
-[TestFixture]
 public class Cow : Base
 {
+    public Cow(EmitMode emitMode) : base(emitMode) { }
+
     [Dec.StaticReferences]
     public static class Decs
     {

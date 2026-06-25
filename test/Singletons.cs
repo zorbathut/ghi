@@ -2,9 +2,10 @@ using NUnit.Framework;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class Singletons : Base
     {
+        public Singletons(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class Decs
         {

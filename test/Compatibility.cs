@@ -4,9 +4,10 @@ using NUnit.Framework;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class Compatibility : Base
     {
+        public Compatibility(EmitMode emitMode) : base(emitMode) { }
+
         public class ComponentA : IRecordable
         {
             public int data;

@@ -25,9 +25,25 @@ namespace Ghi.Test
         }
     }
 
-    [TestFixture]
-    public class Base
+    [TestFixtureSource(typeof(Base), nameof(EmitModes))]
+    public abstract class Base
     {
+        // Ghi can run systems either through emitted IL or through a reflection fallback. Each fixture is instantiated
+        // once per mode, so every derived test runs under both paths in a single `dotnet test`, with no per-test
+        // changes. The mode shows up in test names, e.g. "Foo(Emit)" / "Foo(Reflection)".
+        public enum EmitMode
+        {
+            Emit,
+            Reflection,
+        }
+        public static readonly EmitMode[] EmitModes = { EmitMode.Emit, EmitMode.Reflection };
+
+        private readonly EmitMode emitMode;
+        protected Base(EmitMode emitMode)
+        {
+            this.emitMode = emitMode;
+        }
+
         [SetUp] [TearDown]
         public void Clean()
         {
@@ -47,6 +63,9 @@ namespace Ghi.Test
             handledError = false;
 
             Dec.Config.UsingNamespaces = new string[] { "Ghi", "Ghi.Test", TestContext.CurrentContext.Test.ClassName };
+
+            // Pick emit vs. reflection for this fixture instance, before any test calls Environment.Init().
+            Ghi.Config.EmitEnabled = emitMode == EmitMode.Emit;
         }
 
         private bool handlingWarnings = false;

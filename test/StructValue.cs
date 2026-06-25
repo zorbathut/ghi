@@ -5,6 +5,8 @@ namespace Ghi.Test;
 
 public class StructValue : Base
 {
+    public StructValue(EmitMode emitMode) : base(emitMode) { }
+
     [Dec.StaticReferences]
     public static class Decs
     {

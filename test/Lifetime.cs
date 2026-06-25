@@ -5,9 +5,10 @@ using System.Linq;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class Lifetime : Base
     {
+        public Lifetime(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class RemovalDecs
         {

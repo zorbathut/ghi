@@ -3,9 +3,10 @@ using NUnit.Framework;
 
 namespace Ghi.Test
 {
-    [TestFixture]
     public class AddWithComponent : Base
     {
+        public AddWithComponent(EmitMode emitMode) : base(emitMode) { }
+
         [Dec.StaticReferences]
         public static class GenericEntityModel
         {
