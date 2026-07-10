@@ -451,14 +451,14 @@ namespace Ghi
             Resolve();
             Assert.IsTrue(deferred == null);
 
-            recorder.Record(ref id, "id");
-            recorder.Record(ref gen, "gen");
+            recorder.Record(ref id, nameof(id));
+            recorder.Record(ref gen, nameof(gen));
             if (recorder.Mode == Dec.Recorder.Direction.Read && recorder.Intent != Dec.Recorder.Purpose.Cloning)
             {
                 // Pre-stableId saves used "hashCode": a deterministic 32-bit value written identically to every reference of the same entity, so loading it as stableId preserves cross-reference consistency. Environment.Record bumps stableIdCounter past any loaded values so future creations don't collide. New "stableId" tag is read second so it wins if both are present.
                 recorder.Record(ref stableId, "hashCode");
             }
-            recorder.Record(ref stableId, "stableId");
+            recorder.Record(ref stableId, nameof(stableId));
         }
 
         internal enum Status
