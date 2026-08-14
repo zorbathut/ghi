@@ -16,12 +16,13 @@ namespace Ghi
             if (order == null)
             {
                 reporter("No defined order");
+                return;
             }
 
             if (order.Any(s => s?.method == null))
             {
                 reporter("Order contains null or invalid systems; cleaning");
-                order = order.Where(s => s?.method == null).ToArray();
+                order = order.Where(s => s?.method != null).ToArray();
             }
         }
     }
