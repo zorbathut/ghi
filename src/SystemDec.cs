@@ -12,10 +12,9 @@ namespace Ghi
 
         [NonSerialized] internal MethodInfo method;
 
-        public override void ConfigErrors(Action<string> reporter)
+        [Dec.Setup]
+        private void ResolveMethod(Action<string> reporter)
         {
-            base.ConfigErrors(reporter);
-
             if (type == null)
             {
                 reporter("No defined type");

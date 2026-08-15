@@ -23,10 +23,9 @@ namespace Ghi
             }
         }
 
-        public override void ConfigErrors(Action<string> reporter)
+        [Dec.Setup]
+        private void ValidateType(Action<string> reporter)
         {
-            base.ConfigErrors(reporter);
-
             if (type == null)
             {
                 reporter("No defined type");

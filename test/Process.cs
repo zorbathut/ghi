@@ -71,7 +71,7 @@ namespace Ghi.Test
                     <ProcessDec decName=""TestProcess"" />
                 </Decs>
             ");
-            // the validator rejects any follow-on NullReferenceException from ConfigErrors
+            // the validator rejects any follow-on NullReferenceException from the setup function
             ExpectErrors(() => parser.Finish(), str => str.Contains("No defined order"));
 
             Assert.IsNull(Decs.TestProcess.order);

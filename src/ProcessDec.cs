@@ -4,15 +4,15 @@ using System.Linq;
 namespace Ghi
 {
 
-    [Dec.SetupDependsOn(typeof(SystemDec))]
     public class ProcessDec : Dec.Dec
     {
         public SystemDec[] order;
 
-        public override void ConfigErrors(Action<string> reporter)
+        // Runs after SystemDec's setup so we can rely on its `method` resolution to tell us which systems are usable.
+        [Dec.Setup]
+        [Dec.SetupAfter(typeof(SystemDec))]
+        private void ValidateOrder(Action<string> reporter)
         {
-            base.ConfigErrors(reporter);
-
             if (order == null)
             {
                 reporter("No defined order");

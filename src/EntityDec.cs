@@ -108,10 +108,9 @@ namespace Ghi
             return (getter, tryGetter, setter);
         }
 
-        public override void ConfigErrors(Action<string> reporter)
+        [Dec.Setup]
+        private void ValidateComponents(Action<string> reporter)
         {
-            base.ConfigErrors(reporter);
-
             if (components == null || components.Count == 0)
             {
                 reporter("No defined components");

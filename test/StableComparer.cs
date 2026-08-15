@@ -268,7 +268,7 @@ namespace Ghi.Test
 
             {
                 Ghi.Environment env = null;
-                ExpectWarnings(() => env = Dec.Recorder.Read<Ghi.Environment>(legacy), wrn => wrn.Contains("Unused fields") && wrn.Contains("prngState"));
+                ExpectWarnings(() => env = Dec.Recorder.Read<Ghi.Environment>(legacy), wrn => wrn.Contains("Elements specified that don't exist on the object") && wrn.Contains("prngState"));
                 using var envActive = new Ghi.Environment.Scope(env);
 
                 // Loaded stableIds should match the pre-rewrite values (old hashCode aliased to stableId).
