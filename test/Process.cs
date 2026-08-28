@@ -57,6 +57,87 @@ namespace Ghi.Test
             Assert.AreSame(Database<SystemDec>.Get("ValidSystem"), Decs.TestProcess.order[0]);
         }
 
+        [Dec.StaticReferences]
+        public static class NestedDecs
+        {
+            static NestedDecs() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static EntityDec EntityModel;
+            public static ProcessDec Outer;
+            public static ProcessDec Inner;
+        }
+
+        public static class NestedInnerSystem
+        {
+            public static void Execute() { }
+        }
+
+        public static class NestedOuterSystem
+        {
+            public static int CountAfterAdd;
+
+            public static void Execute()
+            {
+                var env = Environment.Current.Value;
+                env.Process(NestedDecs.Inner);
+                env.Add(NestedDecs.EntityModel);
+                CountAfterAdd = env.Count;
+            }
+        }
+
+        [Test]
+        public void NestedRefused()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(NestedDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""Component"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""OuterSystem"">
+                        <type>NestedOuterSystem</type>
+                    </SystemDec>
+
+                    <SystemDec decName=""InnerSystem"">
+                        <type>NestedInnerSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""Outer"">
+                        <order>
+                            <li>OuterSystem</li>
+                        </order>
+                    </ProcessDec>
+
+                    <ProcessDec decName=""Inner"">
+                        <order>
+                            <li>InnerSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            NestedOuterSystem.CountAfterAdd = -1;
+
+            ExpectErrors(() => env.Process(NestedDecs.Outer), err => err.Contains("Trying to run process"));
+
+            // the nested process is refused rather than run, so it can't end the outer process out from under the system that called it - if it did, this add would apply immediately instead of deferring, mutating a tranche mid-iteration
+            Assert.AreEqual(0, NestedOuterSystem.CountAfterAdd);
+            Assert.AreEqual(1, env.Count);
+        }
+
         [Test]
         public void NoOrder()
         {

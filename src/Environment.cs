@@ -1053,6 +1053,9 @@ namespace Ghi
             if (status != Status.Idle)
             {
                 Dbg.Err($"Trying to run process while the world is in {status} state; should be {Status.Idle} state");
+
+                // running it anyway would end the outer process when this one finishes, leaving the rest of the outer systems iterating tranches that Add and Remove are now editing in place
+                return;
             }
 
             if (process == null)
