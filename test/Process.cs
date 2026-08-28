@@ -138,6 +138,86 @@ namespace Ghi.Test
             Assert.AreEqual(1, env.Count);
         }
 
+        [Dec.StaticReferences]
+        public static class PhaseEndDecs
+        {
+            static PhaseEndDecs() { Dec.StaticReferencesAttribute.Initialized(); }
+
+            public static EntityDec EntityModel;
+            public static ProcessDec TestProcess;
+        }
+
+        // OnRemove fires from inside the phase-end action loop, which is the window between systems: no system is executing, but the process is still very much running.
+        public class PhaseEndComponent : Dec.IRecordable, IOnRemove
+        {
+            public static bool AddWasImmediate;
+
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnRemove(Entity entity)
+            {
+                var env = Environment.Current.Value;
+
+                // still mid-process, so this has to be rejected
+                Dec.Recorder.Write(env);
+
+                // ...but no system is iterating a tranche, so this doesn't need to defer
+                int before = env.Count;
+                env.Add(PhaseEndDecs.EntityModel);
+                AddWasImmediate = env.Count == before + 1;
+            }
+        }
+
+        public static class PhaseEndRemoveSystem
+        {
+            public static void Execute(Entity entity)
+            {
+                Environment.Current.Value.Remove(entity);
+            }
+        }
+
+        [Test]
+        public void PhaseEndIsStillInProcess()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { explicitStaticRefs = new System.Type[] { typeof(PhaseEndDecs) } });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""Component"">
+                        <type>PhaseEndComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""EntityModel"">
+                        <components>
+                            <li>Component</li>
+                        </components>
+                    </EntityDec>
+
+                    <SystemDec decName=""TestSystem"">
+                        <type>PhaseEndRemoveSystem</type>
+                    </SystemDec>
+
+                    <ProcessDec decName=""TestProcess"">
+                        <order>
+                            <li>TestSystem</li>
+                        </order>
+                    </ProcessDec>
+                </Decs>
+            ");
+            parser.Finish();
+
+            Environment.Init();
+            var env = new Environment();
+            using var envActive = new Environment.Scope(env);
+
+            env.Add(PhaseEndDecs.EntityModel);
+            PhaseEndComponent.AddWasImmediate = false;
+
+            ExpectErrors(() => env.Process(PhaseEndDecs.TestProcess), err => err.Contains("Attempting to record an environment during"));
+
+            Assert.IsTrue(PhaseEndComponent.AddWasImmediate);
+        }
+
         [Test]
         public void NoOrder()
         {

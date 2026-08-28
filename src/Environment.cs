@@ -147,12 +147,31 @@ namespace Ghi
         }
 
         // Status
+        //
+        // Note that a process is "running" for the whole Process() call, including the windows between systems where the phase-end actions execute; that's why System and Process are distinct states rather than the latter being Idle.
         private enum Status
         {
+            // No process running. Entity operations apply immediately, recording is safe.
             Idle,
-            Processing,
+
+            // A process is running, but no system is mid-execution - we're before the first system, after the last, or in the phase-end action loop. Entity operations apply immediately.
+            Process,
+
+            // A system is executing. Entity operations defer to phase end.
+            System,
         }
+
+        // Deliberately not unwound with try/finally, so don't add one. Every callout Process makes to host code - systems, IOnRemove handlers, the profiler scope - routes its exceptions to Dbg.Ex, so the only remaining way out of Process is a host error handler that throws instead of returning. A host that does that has chosen to abort mid-process, and the environment stays wedged in whatever state it was in, refusing to run further processes, until it's discarded.
         private Status status = Status.Idle;
+
+        // Whether a system is mid-execution, and therefore whether entity operations have to defer to phase end rather than editing tranches we're in the middle of iterating.
+        private bool IsInSystem
+        {
+            get
+            {
+                return status == Status.System;
+            }
+        }
 
         // Phase-end deferral
         internal class EntityDeferred
@@ -802,49 +821,45 @@ namespace Ghi
         {
             var resultComponents = FillComponents(dec, providedComponents);
 
-            switch (status)
+            if (!IsInSystem)
             {
-                case Status.Idle:
-                    return AddNow(dec, resultComponents, ++stableIdCounter);
-                case Status.Processing:
-                    var entityDeferred = new EntityDeferred();
-                    entityDeferred.dec = dec;
-
-                    var tranche = new Tranche();
-                    tranche.entries = new List<Entity>();
-                    tranche.components = new Array[dec.components.Count];
-                    // we ignore the metadata because this should never be serialized
-
-                    // create a new set of components
-                    for (int i = 0; i < dec.components.Count; ++i)
-                    {
-                        // currently not worrying about minmaxing efficiency here
-                        tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), 1);
-                        tranche.components[i].SetValue(resultComponents[i], 0);
-                    }
-
-                    // do this late because it's a struct
-                    entityDeferred.tranche = tranche;
-
-                    // Assign stableId once; phase-end AddNow reuses it so the deferred struct and its resolved tranche entry share the same stableId (and therefore the same sort key / hash).
-                    int deferredStableId = ++stableIdCounter;
-                    phaseEndActions.Add(() =>
-                    {
-                        var currentComponents = new object[dec.components.Count];
-                        // copy components back from the tranche
-                        for (int i = 0; i < dec.components.Count; ++i)
-                        {
-                            currentComponents[i] = tranche.components[i].GetValue(0);
-                        }
-                        entityDeferred.replacement = AddNow(dec, currentComponents, deferredStableId);
-                    });
-                    var resultEntity = new Entity(entityDeferred, deferredStableId);
-                    currentEntityAdded.Add(resultEntity);
-                    return resultEntity;
-                default:
-                    Assert.IsTrue(false);
-                    return default;
+                return AddNow(dec, resultComponents, ++stableIdCounter);
             }
+
+            var entityDeferred = new EntityDeferred();
+            entityDeferred.dec = dec;
+
+            var tranche = new Tranche();
+            tranche.entries = new List<Entity>();
+            tranche.components = new Array[dec.components.Count];
+            // we ignore the metadata because this should never be serialized
+
+            // create a new set of components
+            for (int i = 0; i < dec.components.Count; ++i)
+            {
+                // currently not worrying about minmaxing efficiency here
+                tranche.components[i] = Array.CreateInstance(dec.components[i].GetComputedType(), 1);
+                tranche.components[i].SetValue(resultComponents[i], 0);
+            }
+
+            // do this late because it's a struct
+            entityDeferred.tranche = tranche;
+
+            // Assign stableId once; phase-end AddNow reuses it so the deferred struct and its resolved tranche entry share the same stableId (and therefore the same sort key / hash).
+            int deferredStableId = ++stableIdCounter;
+            phaseEndActions.Add(() =>
+            {
+                var currentComponents = new object[dec.components.Count];
+                // copy components back from the tranche
+                for (int i = 0; i < dec.components.Count; ++i)
+                {
+                    currentComponents[i] = tranche.components[i].GetValue(0);
+                }
+                entityDeferred.replacement = AddNow(dec, currentComponents, deferredStableId);
+            });
+            var resultEntity = new Entity(entityDeferred, deferredStableId);
+            currentEntityAdded.Add(resultEntity);
+            return resultEntity;
         }
 
         private Entity AddNow(EntityDec dec, object[] components, int stableId)
@@ -900,21 +915,17 @@ namespace Ghi
                 return;
             }
 
-            switch (status)
+            if (!IsInSystem)
             {
-                case Status.Idle:
+                RemoveNow(entity);
+            }
+            else
+            {
+                phaseEndActions.Add(() =>
+                {
                     RemoveNow(entity);
-                    break;
-                case Status.Processing:
-                    phaseEndActions.Add(() =>
-                    {
-                        RemoveNow(entity);
-                    });
-                    currentEntityRemoved.Add(entity);
-                    break;
-                default:
-                    Assert.IsTrue(false);
-                    break;
+                });
+                currentEntityRemoved.Add(entity);
             }
         }
 
@@ -1070,9 +1081,11 @@ namespace Ghi
                 return;
             }
 
+            status = Status.Process;
+
             foreach (var system in process.order)
             {
-                status = Status.Processing;
+                status = Status.System;
 
                 IDisposable prof = null;
                 try
@@ -1095,7 +1108,7 @@ namespace Ghi
                     Dbg.Ex(e);
                 }
 
-                status = Status.Idle;
+                status = Status.Process;
 
                 if (phaseEndActions.Count != 0)
                 {
@@ -1110,12 +1123,14 @@ namespace Ghi
                     Assert.IsEmpty(phaseEndActions);
                 }
             }
+
+            status = Status.Idle;
         }
 
         public void Record(Dec.Recorder recorder)
         {
-            // make sure we're not actively doing things
-            Assert.AreEqual(Status.Idle, status);
+            // recording partway through a process risks catching component arrays mid-update, and the phase-end windows between systems are no safer than the systems themselves
+            Assert.IsTrue(status == Status.Idle, $"Attempting to record an environment during a process; status is {status}");
             Assert.AreEqual(0, phaseEndActions.Count);
 
             // so that our children can use cows
