@@ -353,7 +353,15 @@ namespace Ghi
                 if (typeof(IOnRemove).IsAssignableFrom(typ))
                 {
                     var comp = dec.GetComponentFrom(typ, tranche, index);
-                    ((IOnRemove)comp).OnRemove(this);
+
+                    try
+                    {
+                        ((IOnRemove)comp).OnRemove(this);
+                    }
+                    catch (Exception e)
+                    {
+                        Dbg.Ex(e);
+                    }
                 }
 
                 if (typ.IsGenericType && typ.BaseType == typeof(Cow<>) && typeof(IOnRemove).IsAssignableFrom(typ.GetGenericArguments()[0]))

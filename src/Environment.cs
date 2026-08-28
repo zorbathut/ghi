@@ -1071,10 +1071,25 @@ namespace Ghi
             {
                 status = Status.Processing;
 
+                IDisposable prof = null;
+                try
                 {
-                    using var p = Config.ProfFactory(system.DecName);
+                    prof = Config.ProfFactory(system.DecName);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
 
-                    system.process(tranches, singletons, CleanCurrentEntityDeferred);
+                system.process(tranches, singletons, CleanCurrentEntityDeferred);
+
+                try
+                {
+                    prof?.Dispose();
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
                 }
 
                 status = Status.Idle;
