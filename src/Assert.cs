@@ -28,6 +28,14 @@ internal static class Assert
         }
     }
 
+    public static void IsFalse(bool val, string msg = null)
+    {
+        if (val)
+        {
+            Dbg.Err(msg ?? "Value is true");
+        }
+    }
+
     public static void IsEmpty<T>(System.Collections.Generic.ICollection<T> collection)
     {
         if (collection.Count != 0)

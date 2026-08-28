@@ -223,6 +223,7 @@ Ghi implements an ECS pattern where:
      - `Remove(Entity)`: Delete entity
      - `Process(ProcessDec)`: Execute systems in order
      - `Singleton<T>()`: Access singleton component
+   - **Process spans**: `IsProcessing` / `IsMutating` report, across the whole `Process()` call, whether a process is running and whether it may be changing recorded state. `Record()` reports an error mid-`IsMutating` but stays quiet during a process declared `constant`, which is what makes mid-frame checksumming possible.
 
 3. **Dec Types** (data definitions loaded from XML):
    - **EntityDec** (`src/EntityDec.cs`): Defines entity types and their component composition

@@ -148,28 +148,65 @@ namespace Ghi
 
         // Status
         //
-        // Note that a process is "running" for the whole Process() call, including the windows between systems where the phase-end actions execute; that's why System and Process are distinct states rather than the latter being Idle.
+        // Two things vary independently here and both matter, so the reachable combinations are spelled out rather than tracked as separate flags: whether a system is mid-execution (which is what makes entity operations defer to phase end), and whether the running process declared itself constant (which is what makes recording safe, and makes any change to recorded state a declaration violation).
         private enum Status
         {
             // No process running. Entity operations apply immediately, recording is safe.
             Idle,
 
-            // A process is running, but no system is mid-execution - we're before the first system, after the last, or in the phase-end action loop. Entity operations apply immediately.
-            Process,
+            // A constant process is running, but no system is mid-execution - we're before the first system, after the last, or in the phase-end action loop. Entity operations apply immediately.
+            ProcessConstant,
 
-            // A system is executing. Entity operations defer to phase end.
-            System,
+            // As ProcessConstant, for a process that may change recorded state.
+            ProcessMutating,
+
+            // A system belonging to a constant process is executing. Entity operations defer to phase end.
+            SystemConstant,
+
+            // As SystemConstant, for a process that may change recorded state.
+            SystemMutating,
         }
 
         // Deliberately not unwound with try/finally, so don't add one. Every callout Process makes to host code - systems, IOnRemove handlers, the profiler scope - routes its exceptions to Dbg.Ex, so the only remaining way out of Process is a host error handler that throws instead of returning. A host that does that has chosen to abort mid-process, and the environment stays wedged in whatever state it was in, refusing to run further processes, until it's discarded.
         private Status status = Status.Idle;
+
+        // True for the entire Process() call, including the windows between systems where the phase-end actions run.
+        public bool IsProcessing
+        {
+            get
+            {
+                return status != Status.Idle;
+            }
+        }
+
+        // True while a process that hasn't declared itself constant is running; i.e. true when the recorded state of this environment may be partway through changing, and recording it would catch that.
+        //
+        // This is a snapshot, not a lock: reading false doesn't stop another thread from starting a mutating process a moment later, and a record is not instantaneous. A caller reading this from off-thread is responsible for arranging that no mutating process can start while it works. Note also that this only covers processes - a direct Add/Remove/SetComponent/SingletonSet outside of one mutates the environment with this unset.
+        public bool IsMutating
+        {
+            get
+            {
+                // one read, so a process boundary partway through can't produce an answer that was never true
+                var current = status;
+                return current == Status.ProcessMutating || current == Status.SystemMutating;
+            }
+        }
+
+        // Whether the running process declared itself constant, and therefore whether changing recorded state right now is a violation of that declaration.
+        internal bool IsConstantProcess
+        {
+            get
+            {
+                return status == Status.ProcessConstant || status == Status.SystemConstant;
+            }
+        }
 
         // Whether a system is mid-execution, and therefore whether entity operations have to defer to phase end rather than editing tranches we're in the middle of iterating.
         private bool IsInSystem
         {
             get
             {
-                return status == Status.System;
+                return status == Status.SystemConstant || status == Status.SystemMutating;
             }
         }
 
@@ -819,6 +856,12 @@ namespace Ghi
 
         public Entity Add(EntityDec dec, object[] providedComponents = null)
         {
+            if (IsConstantProcess)
+            {
+                // non-fatal; we go ahead and do it, but the process's declaration is now a lie
+                Dbg.Err($"Adding entity {dec} during a constant process; this violates the process's constant declaration");
+            }
+
             var resultComponents = FillComponents(dec, providedComponents);
 
             if (!IsInSystem)
@@ -913,6 +956,12 @@ namespace Ghi
             {
                 Dbg.Err("Attempted to remove default entity");
                 return;
+            }
+
+            if (IsConstantProcess)
+            {
+                // non-fatal; we go ahead and do it, but the process's declaration is now a lie
+                Dbg.Err($"Removing entity {entity} during a constant process; this violates the process's constant declaration");
             }
 
             if (!IsInSystem)
@@ -1045,6 +1094,12 @@ namespace Ghi
                 return;
             }
 
+            if (IsConstantProcess)
+            {
+                // singletons are recorded state, so swapping one out is the same kind of violation as an add or remove
+                Dbg.Err($"Setting singleton {typeof(T)} during a constant process; this violates the process's constant declaration");
+            }
+
             singletons[singletonLookup[typeof(T)]] = newSingleton;
         }
 
@@ -1081,11 +1136,14 @@ namespace Ghi
                 return;
             }
 
-            status = Status.Process;
+            var statusProcess = process.constant ? Status.ProcessConstant : Status.ProcessMutating;
+            var statusSystem = process.constant ? Status.SystemConstant : Status.SystemMutating;
+
+            status = statusProcess;
 
             foreach (var system in process.order)
             {
-                status = Status.System;
+                status = statusSystem;
 
                 IDisposable prof = null;
                 try
@@ -1108,7 +1166,7 @@ namespace Ghi
                     Dbg.Ex(e);
                 }
 
-                status = Status.Process;
+                status = statusProcess;
 
                 if (phaseEndActions.Count != 0)
                 {
@@ -1129,8 +1187,8 @@ namespace Ghi
 
         public void Record(Dec.Recorder recorder)
         {
-            // recording partway through a process risks catching component arrays mid-update, and the phase-end windows between systems are no safer than the systems themselves
-            Assert.IsTrue(status == Status.Idle, $"Attempting to record an environment during a process; status is {status}");
+            // A process that has declared itself constant isn't touching anything we're about to record, so recording right through one is fine - that's the whole point of the declaration - but anything else risks catching component arrays partway through an update
+            Assert.IsFalse(IsMutating, $"Attempting to record an environment during a non-constant process; status is {status}");
             Assert.AreEqual(0, phaseEndActions.Count);
 
             // so that our children can use cows

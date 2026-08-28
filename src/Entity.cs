@@ -214,6 +214,12 @@ namespace Ghi
 
         public void SetComponent<T>(T component)
         {
+            if (Environment.Current.Value != null && Environment.Current.Value.IsConstantProcess)
+            {
+                // non-fatal; we go ahead and do it, but the process's declaration is now a lie
+                Dbg.Err($"Setting component {typeof(T)} on {this} during a constant process; this violates the process's constant declaration");
+            }
+
             if (typeof(T).IsGenericType && typeof(T).BaseType == typeof(Cow<>))
             {
                 // no this kinda just doesn't work right now sorry
