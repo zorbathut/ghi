@@ -155,6 +155,66 @@ namespace Ghi.Test
             Assert.IsTrue(HookedA.SeenEqualsHeld);
         }
 
+        // Removes Target from inside Trigger's OnRemove.
+        public class RemoveOtherOnRemove : IRecordable, IOnRemove
+        {
+            public static Entity Trigger;
+            public static Entity Target;
+
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnRemove(Entity entity)
+            {
+                Log.Add(("R.remove", entity));
+                if (entity == Trigger)
+                {
+                    Environment.Current.Value.Remove(Target);
+                }
+            }
+        }
+
+        // Every (trigger, target) pair over three entities; the trigger-last cases are the ones where the nested removal relocates the trigger mid-dispatch.
+        [TestCase(0, 1)]
+        [TestCase(0, 2)]
+        [TestCase(1, 0)]
+        [TestCase(1, 2)]
+        [TestCase(2, 0)]
+        [TestCase(2, 1)]
+        public void ReentrantRemoveFromHook(int trigger, int target)
+        {
+            // R goes first so A's hook runs after the tranche has been rearranged underneath it
+            var env = Setup(DecA + @"
+                <ComponentDec decName=""R"">
+                    <type>RemoveOtherOnRemove</type>
+                </ComponentDec>
+
+                <EntityDec decName=""EntityA"">
+                    <components>
+                        <li>R</li>
+                        <li>A</li>
+                    </components>
+                </EntityDec>");
+            using var envActive = new Environment.Scope(env);
+
+            var ents = new[] { env.Add(EntityA), env.Add(EntityA), env.Add(EntityA) };
+            RemoveOtherOnRemove.Trigger = ents[trigger];
+            RemoveOtherOnRemove.Target = ents[target];
+            Log.Clear();
+
+            env.Remove(ents[trigger]);
+
+            int survivor = 3 - trigger - target;
+            Assert.AreEqual(1, env.Count);
+            Assert.IsTrue(ents[survivor].IsValid());
+            Assert.IsFalse(ents[trigger].IsValid());
+            Assert.IsFalse(ents[target].IsValid());
+            Assert.AreEqual(new[] { ents[survivor] }, env.List.ToArray());
+
+            // one of each hook per removed entity, whichever order they went in, and each on the right instance
+            CollectionAssert.AreEquivalent(new[] { ("R.remove", ents[trigger]), ("A.remove", ents[trigger]), ("R.remove", ents[target]), ("A.remove", ents[target]) }, Log);
+            Assert.AreEqual(0, HookedA.SelfMismatches);
+        }
+
         // Removes Target from inside OnAdd.
         public class RemoveOtherOnAdd : IRecordable, IOnAdd
         {
@@ -245,6 +305,69 @@ namespace Ghi.Test
             Assert.AreEqual(41, Log.Count);
             Assert.AreEqual(41, Log.Select(l => l.entity).Distinct().Count());
             CollectionAssert.AreEquivalent(env.List.ToArray(), Log.Select(l => l.entity).ToArray());
+        }
+
+        // Removes the entity being announced, or its partner if it has one.
+        public class RemoveOnRemove : IRecordable, IOnRemove
+        {
+            public static Dictionary<Entity, Entity> Partner = new();
+
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnRemove(Entity entity)
+            {
+                Log.Add(("P.remove", entity));
+                Environment.Current.Value.Remove(Partner.TryGetValue(entity, out var partner) ? partner : entity);
+            }
+        }
+
+        private const string RemoveOnRemoveDecs = DecA + @"
+            <ComponentDec decName=""P"">
+                <type>RemoveOnRemove</type>
+            </ComponentDec>
+
+            <EntityDec decName=""EntityA"">
+                <components>
+                    <li>P</li>
+                    <li>A</li>
+                </components>
+            </EntityDec>";
+
+        [Test]
+        public void RemoveSelfFromHook()
+        {
+            var env = Setup(RemoveOnRemoveDecs);
+            using var envActive = new Environment.Scope(env);
+
+            RemoveOnRemove.Partner.Clear();
+            var ent = env.Add(EntityA);
+            Log.Clear();
+
+            env.Remove(ent);
+
+            Assert.AreEqual(new[] { ("P.remove", ent), ("A.remove", ent) }, Log);
+            Assert.IsFalse(ent.IsValid());
+            Assert.AreEqual(0, env.Count);
+        }
+
+        [Test]
+        public void RemoveCascadeFromHook()
+        {
+            var env = Setup(RemoveOnRemoveDecs);
+            using var envActive = new Environment.Scope(env);
+
+            var a = env.Add(EntityA);
+            var b = env.Add(EntityA);
+            RemoveOnRemove.Partner = new() { { a, b }, { b, a } };
+            Log.Clear();
+
+            env.Remove(a);
+
+            // a's first hook removes b, b's first hook asks for a again and that's already underway; each entity's hooks fire exactly once
+            Assert.AreEqual(new[] { ("P.remove", a), ("P.remove", b), ("A.remove", b), ("A.remove", a) }, Log);
+            Assert.IsFalse(a.IsValid());
+            Assert.IsFalse(b.IsValid());
+            Assert.AreEqual(0, env.Count);
         }
 
         public struct StructHook : IOnRemove

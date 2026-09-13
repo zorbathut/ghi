@@ -118,6 +118,9 @@ namespace Ghi
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
 
+        // Ids whose removal is currently dispatching hooks; a hook asking to remove one of these again is asking for something already underway.
+        private List<int> removalsInFlight = new();
+
         // Monotonic counter used to assign Entity.stableId at creation. Deterministic across cloned environments because it's serialized with env state.
         // Starts at an arbitrary non-zero value so default(Entity) (stableId == 0) doesn't collide with any real entity's hash.
         // Not thread-safe; will need revisiting alongside multithread support.
@@ -1013,8 +1016,21 @@ namespace Ghi
                 return;
             }
 
-            // send appropriate messages
-            FireOnRemove(lookup.dec, tranches[lookup.dec.index].entries[lookup.index]);
+            if (lookup.dec.onRemoveComponentSlots.Length != 0)
+            {
+                if (removalsInFlight.Contains(id))
+                {
+                    // one of this entity's own remove hooks asked for it again; it's already going
+                    return;
+                }
+
+                removalsInFlight.Add(id);
+                FireOnRemove(lookup.dec, tranches[lookup.dec.index].entries[lookup.index]);
+                removalsInFlight.RemoveAt(removalsInFlight.Count - 1);
+
+                // hooks may have added or removed entities in this tranche, moving us; they can't have removed us, that's what removalsInFlight is for
+                lookup = LookupFromEntity(entity).lookup;
+            }
 
             // we want to keep each tranche contiguous
 
@@ -1057,7 +1073,7 @@ namespace Ghi
             entityFreeList.Add(id);
         }
 
-        // Hook dispatch. Component arrays are cast to object[] rather than read through Array.GetValue; ComponentDec refuses value-type hook components, so the cast holds and nothing boxes.
+        // Hook dispatch. Component arrays are cast to object[] rather than read through Array.GetValue; ComponentDec refuses value-type hook components, so the cast holds and nothing boxes. Each hook gets a fresh lookup, since an earlier hook may have added or removed entities of the same type and thereby moved the one we're announcing.
         private void FireOnAdd(EntityDec dec, Entity entity)
         {
             var slots = dec.onAddComponentSlots;
@@ -1071,7 +1087,6 @@ namespace Ghi
 
             for (int i = 0; i < slots.Length; ++i)
             {
-                // an earlier hook may have added or removed entities of the same type and thereby moved the one we're announcing
                 var (currentDec, tranche, index) = Get(entity);
                 if (currentDec == null)
                 {
@@ -1090,19 +1105,16 @@ namespace Ghi
             }
         }
 
+        // Caller guarantees the entity stays in its tranche for the duration (see removalsInFlight), so only its position can change between hooks.
         private void FireOnRemove(EntityDec dec, Entity entity)
         {
-            var slots = dec.onRemoveComponentSlots;
-            if (slots.Length == 0)
-            {
-                return;
-            }
-
             using var scope = new Scope(this);
 
-            var (_, tranche, index) = Get(entity);
+            var slots = dec.onRemoveComponentSlots;
             for (int i = 0; i < slots.Length; ++i)
             {
+                var (_, tranche, index) = Get(entity);
+
                 try
                 {
                     ((IOnRemove)((object[])tranche.components[slots[i]])[index]).OnRemove(entity);

@@ -8,7 +8,7 @@ namespace Ghi;
 //
 // Internal order is currently undefined. An exception thrown by a hook is reported and the remaining hooks still run.
 //
-// A hook may Add or Remove entities. Removing the entity being added does undefined things with its pending add hooks, but its remove hooks all fire as usual, so a component whose OnAdd never ran may still see OnRemove.
+// A hook may Add or Remove entities. Removing the entity being added does undefined things with its pending add hooks, but its remove hooks all fire as usual, so a component whose OnAdd never ran may still see OnRemove. Removing the entity being removed, from one of its own remove hooks, is a no-op; that removal is already underway.
 //
 // Dispatch currently goes by the ComponentDec's declared type: a subclass instance that adds a hook interface the declared type lacks is never called. Only reference types may implement these; a struct component would receive a boxed copy and lose every write it made.
 
