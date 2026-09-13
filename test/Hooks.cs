@@ -666,6 +666,34 @@ namespace Ghi.Test
                 </ComponentDec>", "only supported on singleton");
         }
 
+        public class UndeclaredBase : IRecordable
+        {
+            public void Record(Dec.Recorder recorder) { }
+        }
+
+        public class UndeclaredSub : UndeclaredBase, IOnAdd
+        {
+            public void OnAdd(Entity entity) { }
+        }
+
+        [Test]
+        public void UndeclaredSubclassHookWarns()
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, @"
+                <Decs>
+                    <ComponentDec decName=""U"">
+                        <type>UndeclaredBase</type>
+                    </ComponentDec>
+                </Decs>");
+            parser.Finish();
+
+            ExpectWarnings(() => Environment.Init(), wrn => wrn.Contains(nameof(UndeclaredSub)) && wrn.Contains(nameof(IOnAdd)));
+        }
+
+        // The pre-existing IOnRemove tests, kept alongside the rest of the hook coverage.
+
         public class OnRemoveComp : Ghi.IOnRemove
         {
             public static int removed = 0;

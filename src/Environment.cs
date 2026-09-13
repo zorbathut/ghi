@@ -258,6 +258,7 @@ namespace Ghi
             }
         }
 
+        // One-time startup; expensive!
         public static void Init()
         {
             var DbgEx = typeof(Dbg).GetMethod("Ex", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
@@ -284,6 +285,7 @@ namespace Ghi
             }
             singletonsOnAddGlobal = HookSlots(singletonDecs, typeof(IOnAddGlobal));
             singletonsOnRemoveGlobal = HookSlots(singletonDecs, typeof(IOnRemoveGlobal));
+            WarnOnUndeclaredHooks(allComponents);
 
             // set up SystemDec processes
             foreach (var dec in Dec.Database<SystemDec>.List)
@@ -432,6 +434,58 @@ namespace Ghi
                 .Select((cd, i) => (cd, i))
                 .Where(x => hook.IsAssignableFrom(x.cd.GetComputedType()))
                 .Select(x => x.i).ToArray();
+        }
+
+        private static readonly Type[] HookInterfaces = { typeof(IOnAdd), typeof(IOnRemove), typeof(IOnAddGlobal), typeof(IOnRemoveGlobal) };
+
+        // Hook dispatch goes by a ComponentDec's declared type, so a subclass that adds a hook interface the declared type lacks would be stored and never called. We can't know which subclasses will actually be stored, so warn about every one that exists.
+        private static void WarnOnUndeclaredHooks(ComponentDec[] componentDecs)
+        {
+            // a type implementing one of our interfaces must be in an assembly that references us directly
+            string ghiName = typeof(Environment).Assembly.GetName().Name;
+            var hookedTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(asm => asm.GetReferencedAssemblies().Any(name => name.Name == ghiName))
+                .SelectMany(GetTypesSafe)
+                .Where(t => !t.IsInterface && HookInterfaces.Any(hook => hook.IsAssignableFrom(t)))
+                .ToArray();
+
+            foreach (var dec in componentDecs)
+            {
+                if (dec.type == null)
+                {
+                    continue;
+                }
+
+                foreach (var t in hookedTypes)
+                {
+                    if (t == dec.type || !dec.type.IsAssignableFrom(t))
+                    {
+                        continue;
+                    }
+
+                    var undeclared = HookInterfaces
+                        .Where(hook => hook.IsAssignableFrom(t) && !hook.IsAssignableFrom(dec.type))
+                        .Select(hook => hook.Name)
+                        .ToArray();
+                    if (undeclared.Length != 0)
+                    {
+                        Dbg.Wrn($"{dec}: {t} derives from the declared type {dec.type} but adds {string.Join(", ", undeclared)}; hooks dispatch by declared type, so an instance of {t} stored in this component would never receive them");
+                    }
+                }
+            }
+        }
+
+        // GetTypes() can throw on some platforms when a dependency fails to load; the partial results are what we want
+        private static IEnumerable<Type> GetTypesSafe(System.Reflection.Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (System.Reflection.ReflectionTypeLoadException e)
+            {
+                return e.Types.Where(t => t != null);
+            }
         }
 
         // Singleton-only systems: every parameter is satisfied by a singleton, so there's no per-entity iteration.

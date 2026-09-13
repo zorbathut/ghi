@@ -10,7 +10,7 @@ namespace Ghi;
 //
 // A hook may Add or Remove entities. Removing the entity being added does undefined things with its pending add hooks, but its remove hooks all fire as usual, so a component whose OnAdd never ran may still see OnRemove. Removing the entity being removed, from one of its own remove hooks, is a no-op; that removal is already underway.
 //
-// Dispatch currently goes by the ComponentDec's declared type: a subclass instance that adds a hook interface the declared type lacks is never called. Only reference types may implement these; a struct component would receive a boxed copy and lose every write it made.
+// Dispatch currently goes by the ComponentDec's declared type: a subclass instance that adds a hook interface the declared type lacks is never called. Environment.Init warns about every such subclass it can find. Only reference types may implement these; a struct component would receive a boxed copy and lose every write it made.
 
 // Fired on a component when its entity is added.
 public interface IOnAdd
