@@ -66,10 +66,62 @@ namespace Ghi.Test
             }
         }
 
+        public class HookedB : IRecordable, IOnAdd, IOnRemove
+        {
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAdd(Entity entity)
+            {
+                Log.Add(("B.add", entity));
+            }
+
+            public void OnRemove(Entity entity)
+            {
+                Log.Add(("B.remove", entity));
+            }
+        }
+
+        public class HookedGlobal : IRecordable, IOnAddGlobal, IOnRemoveGlobal
+        {
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAddGlobal(Entity entity)
+            {
+                Log.Add(("G.add", entity));
+            }
+
+            public void OnRemoveGlobal(Entity entity)
+            {
+                Log.Add(("G.remove", entity));
+            }
+        }
+
         private const string DecA = @"
             <ComponentDec decName=""A"">
                 <type>HookedA</type>
             </ComponentDec>";
+
+        private const string DecB = @"
+            <ComponentDec decName=""B"">
+                <type>HookedB</type>
+            </ComponentDec>";
+
+        private const string DecG = @"
+            <ComponentDec decName=""G"">
+                <type>HookedGlobal</type>
+                <singleton>true</singleton>
+            </ComponentDec>";
+
+        private const string DecPlain = @"
+            <ComponentDec decName=""Plain"">
+                <type>SimpleComponent</type>
+            </ComponentDec>
+
+            <EntityDec decName=""PlainEntity"">
+                <components>
+                    <li>Plain</li>
+                </components>
+            </EntityDec>";
 
         private Environment Setup(string decs)
         {
@@ -153,6 +205,68 @@ namespace Ghi.Test
             Assert.IsTrue(HookedA.SeenValid);
             Assert.AreEqual(42, HookedA.SeenValue);
             Assert.IsTrue(HookedA.SeenEqualsHeld);
+        }
+
+        public static class DeferredAdderBoth
+        {
+            public static Entity HeldA;
+            public static Entity HeldPlain;
+
+            public static void Execute()
+            {
+                var env = Environment.Current.Value;
+                HeldA = env.Add(EntityA);
+                HeldPlain = env.Add(Dec.Database<EntityDec>.Get("PlainEntity"));
+            }
+        }
+
+        [Test]
+        public void GlobalHooks()
+        {
+            var env = Setup(EntityAWithA + DecG + DecPlain + @"
+                <SystemDec decName=""Adder"">
+                    <type>DeferredAdderBoth</type>
+                </SystemDec>
+
+                <ProcessDec decName=""Process"">
+                    <order>
+                        <li>Adder</li>
+                    </order>
+                </ProcessDec>");
+            using var envActive = new Environment.Scope(env);
+
+            var a = env.Add(EntityA);
+            var plain = env.Add(Dec.Database<EntityDec>.Get("PlainEntity"));
+            Assert.AreEqual(new[] { ("A.add", a), ("G.add", a), ("G.add", plain) }, Log);
+
+            Log.Clear();
+            env.Remove(plain);
+            env.Remove(a);
+            Assert.AreEqual(new[] { ("G.remove", plain), ("G.remove", a), ("A.remove", a) }, Log);
+
+            Log.Clear();
+            env.Process(Dec.Database<ProcessDec>.Get("Process"));
+            Assert.AreEqual(new[] { ("A.add", DeferredAdderBoth.HeldA), ("G.add", DeferredAdderBoth.HeldA), ("G.add", DeferredAdderBoth.HeldPlain) }, Log);
+        }
+
+        [Test]
+        public void Order()
+        {
+            var env = Setup(DecA + DecB + DecG + @"
+                <EntityDec decName=""EntityA"">
+                    <components>
+                        <li>A</li>
+                        <li>B</li>
+                    </components>
+                </EntityDec>");
+            using var envActive = new Environment.Scope(env);
+
+            var ent = env.Add(EntityA);
+            Assert.AreEqual(new[] { "A.add", "B.add", "G.add" }, Tags());
+
+            Log.Clear();
+            env.Remove(ent);
+            Assert.AreEqual(new[] { "G.remove", "A.remove", "B.remove" }, Tags());
         }
 
         // Removes Target from inside Trigger's OnRemove.
@@ -370,6 +484,137 @@ namespace Ghi.Test
             Assert.AreEqual(0, env.Count);
         }
 
+        public class RemoveSelfOnAdd : IRecordable, IOnAdd
+        {
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAdd(Entity entity)
+            {
+                Log.Add(("S.add", entity));
+                Environment.Current.Value.Remove(entity);
+            }
+        }
+
+        [Test]
+        public void RemoveDuringOnAdd()
+        {
+            var env = Setup(DecA + DecG + @"
+                <ComponentDec decName=""S"">
+                    <type>RemoveSelfOnAdd</type>
+                </ComponentDec>
+
+                <EntityDec decName=""EntityA"">
+                    <components>
+                        <li>S</li>
+                        <li>A</li>
+                    </components>
+                </EntityDec>");
+            using var envActive = new Environment.Scope(env);
+
+            var ent = env.Add(EntityA);
+
+            // the first component's OnAdd removed the entity, so the remaining add hooks never see it
+            Assert.AreEqual(new[] { ("S.add", ent), ("G.remove", ent), ("A.remove", ent) }, Log);
+            Assert.IsFalse(ent.IsValid());
+            Assert.AreEqual(0, env.Count);
+        }
+
+        // Removes every entity it's told about, from the global add hook.
+        public class RejectOnAddGlobal : IRecordable, IOnAddGlobal
+        {
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAddGlobal(Entity entity)
+            {
+                Log.Add(("F.add", entity));
+                Environment.Current.Value.Remove(entity);
+            }
+        }
+
+        [Test]
+        public void RemoveDuringOnAddGlobal()
+        {
+            // F sorts before G, so it runs first and G must find the entity already gone
+            var env = Setup(EntityAWithA + DecG + @"
+                <ComponentDec decName=""F"">
+                    <type>RejectOnAddGlobal</type>
+                    <singleton>true</singleton>
+                </ComponentDec>");
+            using var envActive = new Environment.Scope(env);
+
+            var ent = env.Add(EntityA);
+
+            Assert.AreEqual(new[] { ("A.add", ent), ("F.add", ent), ("G.remove", ent), ("A.remove", ent) }, Log);
+            Assert.IsFalse(ent.IsValid());
+            Assert.AreEqual(0, env.Count);
+        }
+
+        [Test]
+        public void SilentAcrossRecord([Values] EnvironmentMode envMode)
+        {
+            var env = Setup(EntityAWithA + DecG);
+            using var envActive = new Environment.Scope(env);
+
+            env.Add(EntityA);
+            env.Add(EntityA);
+            Assert.AreEqual(4, Log.Count);
+            Log.Clear();
+
+            ProcessEnvMode(env, envMode, env =>
+            {
+                // the round trip itself fires nothing
+                Assert.IsEmpty(Log);
+                Assert.AreEqual(2, env.Count);
+
+                // and the copy still fires normally
+                var ent = env.Add(EntityA);
+                env.Remove(ent);
+                Assert.AreEqual(new[] { ("A.add", ent), ("G.add", ent), ("G.remove", ent), ("A.remove", ent) }, Log);
+            });
+        }
+
+        [Test]
+        public void SilentOnLoadFill()
+        {
+            string serialized;
+            {
+                var env = Setup(DecPlain);
+                using var envActive = new Environment.Scope(env);
+
+                env.Add(Dec.Database<EntityDec>.Get("PlainEntity"));
+                env.Add(Dec.Database<EntityDec>.Get("PlainEntity"));
+
+                serialized = Dec.Recorder.Write(env);
+            }
+
+            Clean();
+
+            // the save predates both the hooked component and the hooked singleton; loading fills them in without announcing anything
+            {
+                Setup(DecA + DecG + @"
+                    <ComponentDec decName=""Plain"">
+                        <type>SimpleComponent</type>
+                    </ComponentDec>
+
+                    <EntityDec decName=""PlainEntity"">
+                        <components>
+                            <li>Plain</li>
+                            <li>A</li>
+                        </components>
+                    </EntityDec>");
+                var env = Dec.Recorder.Read<Environment>(serialized);
+                using var envActive = new Environment.Scope(env);
+
+                Assert.IsEmpty(Log);
+                Assert.AreEqual(2, env.Count);
+                Assert.IsTrue(env.List.All(e => e.ComponentRO<HookedA>() != null));
+                Assert.IsNotNull(env.Singleton<HookedGlobal>());
+
+                var ent = env.Add(Dec.Database<EntityDec>.Get("PlainEntity"));
+                Assert.AreEqual(new[] { ("A.add", ent), ("G.add", ent) }, Log);
+            }
+        }
+
         public struct StructHook : IOnRemove
         {
             public void OnRemove(Entity entity) { }
@@ -410,6 +655,15 @@ namespace Ghi.Test
                     <type>HookedA</type>
                     <singleton>true</singleton>
                 </ComponentDec>", "never fire on a singleton");
+        }
+
+        [Test]
+        public void NonSingletonGlobalHookIsError()
+        {
+            ExpectSetupError(@"
+                <ComponentDec decName=""G"">
+                    <type>HookedGlobal</type>
+                </ComponentDec>", "only supported on singleton");
         }
 
         public class OnRemoveComp : Ghi.IOnRemove

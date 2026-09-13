@@ -38,20 +38,26 @@ namespace Ghi
             }
 
             bool hooked = typeof(IOnAdd).IsAssignableFrom(type) || typeof(IOnRemove).IsAssignableFrom(type);
+            bool hookedGlobal = typeof(IOnAddGlobal).IsAssignableFrom(type) || typeof(IOnRemoveGlobal).IsAssignableFrom(type);
 
-            if (hooked && type.IsValueType)
+            if ((hooked || hookedGlobal) && type.IsValueType)
             {
                 reporter("Lifecycle hooks are not supported on value-type components; the hook would receive a boxed copy and lose its writes");
             }
 
-            if (hooked && cow)
+            if ((hooked || hookedGlobal) && cow)
             {
                 reporter("Lifecycle hooks are not supported on COW components");
             }
 
             if (hooked && singleton)
             {
-                reporter("IOnAdd and IOnRemove are per-entity hooks and never fire on a singleton");
+                reporter("IOnAdd and IOnRemove are per-entity hooks and never fire on a singleton; use IOnAddGlobal or IOnRemoveGlobal");
+            }
+
+            if (hookedGlobal && !singleton)
+            {
+                reporter("IOnAddGlobal and IOnRemoveGlobal are only supported on singleton components");
             }
         }
     }

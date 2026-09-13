@@ -115,6 +115,10 @@ namespace Ghi
         // The singleton ComponentDecs in slot order; every `singletons` array is indexed by position in this.
         private static ComponentDec[] singletonDecs;
 
+        // Slots in `singletons` whose declared type implements each global hook; computed by Init.
+        private static int[] singletonsOnAddGlobal;
+        private static int[] singletonsOnRemoveGlobal;
+
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
 
@@ -278,6 +282,8 @@ namespace Ghi
                 dec.onAddComponentSlots = HookSlots(dec.components, typeof(IOnAdd));
                 dec.onRemoveComponentSlots = HookSlots(dec.components, typeof(IOnRemove));
             }
+            singletonsOnAddGlobal = HookSlots(singletonDecs, typeof(IOnAddGlobal));
+            singletonsOnRemoveGlobal = HookSlots(singletonDecs, typeof(IOnRemoveGlobal));
 
             // set up SystemDec processes
             foreach (var dec in Dec.Database<SystemDec>.List)
@@ -1016,7 +1022,7 @@ namespace Ghi
                 return;
             }
 
-            if (lookup.dec.onRemoveComponentSlots.Length != 0)
+            if (lookup.dec.onRemoveComponentSlots.Length != 0 || singletonsOnRemoveGlobal.Length != 0)
             {
                 if (removalsInFlight.Contains(id))
                 {
@@ -1077,7 +1083,8 @@ namespace Ghi
         private void FireOnAdd(EntityDec dec, Entity entity)
         {
             var slots = dec.onAddComponentSlots;
-            if (slots.Length == 0)
+            var globals = singletonsOnAddGlobal;
+            if (slots.Length == 0 && globals.Length == 0)
             {
                 return;
             }
@@ -1103,12 +1110,43 @@ namespace Ghi
                     Dbg.Ex(e);
                 }
             }
+
+            for (int i = 0; i < globals.Length; ++i)
+            {
+                if (Get(entity).dec == null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    ((IOnAddGlobal)singletons[globals[i]]).OnAddGlobal(entity);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
+            }
         }
 
         // Caller guarantees the entity stays in its tranche for the duration (see removalsInFlight), so only its position can change between hooks.
         private void FireOnRemove(EntityDec dec, Entity entity)
         {
             using var scope = new Scope(this);
+
+            // globals first, so they observe the entity before its own components start tearing down
+            var globals = singletonsOnRemoveGlobal;
+            for (int i = 0; i < globals.Length; ++i)
+            {
+                try
+                {
+                    ((IOnRemoveGlobal)singletons[globals[i]]).OnRemoveGlobal(entity);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
+            }
 
             var slots = dec.onRemoveComponentSlots;
             for (int i = 0; i < slots.Length; ++i)
@@ -1367,6 +1405,7 @@ namespace Ghi
                     else
                     {
                         // we don't have this singleton, so we need to create it
+                        // deliberately no OnAddGlobal replay for the entities already here: hooks never fire from Record
                         newSingletons[kvp.Value] = Activator.CreateInstance(kvp.Key);
                     }
                 }

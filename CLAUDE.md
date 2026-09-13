@@ -289,10 +289,11 @@ This structure-of-arrays layout enables:
 
 ### Entity Lifecycle
 
-1. **Creation**: `env.Add(entityDec, components)` → Allocates entity ID → Stores in tranche
-2. **Resolution**: Entity structs may be "deferred" during system execution, resolved to real IDs at phase end
-3. **Deletion**: `env.Remove(entity)` → Calls `IOnRemove` handlers → Swaps with last element (O(1) removal)
+1. **Creation**: `env.Add(entityDec, components)` → Allocates entity ID → Stores in tranche → Calls `IOnAdd` on its components, then `IOnAddGlobal` on singletons
+2. **Resolution**: Entity structs may be "deferred" during system execution, resolved to real IDs at phase end (hooks fire then, on the resolved entity)
+3. **Deletion**: `env.Remove(entity)` → Calls `IOnRemoveGlobal` on singletons, then `IOnRemove` on its components → Swaps with last element (O(1) removal)
 4. **Generation Numbers**: Prevent use-after-free by incrementing on deletion
+5. **Hooks** (`src/Interface.cs`): dispatch is over slot indices precomputed in `Environment.Init()`; hooks may add/remove re-entrantly; they never fire from `Record` (save/load/clone), since their effects are part of the recorded state
 
 ### Important Constraints
 
