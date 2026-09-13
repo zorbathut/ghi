@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Ghi.Test
 {
-    // Process calls out to two pieces of host code that aren't systems - IOnRemove handlers, from the phase-end action loop, and the profiler scope around each system. An exception from either used to escape Process, which left status stuck mid-process and the environment permanently unable to run another one.
+    // Process calls out to two pieces of host code that aren't systems - lifecycle hooks, from the phase-end action loop, and the profiler scope around each system. An exception from either used to escape Process, which left status stuck mid-process and the environment permanently unable to run another one.
     public class ProcessExceptions : Base
     {
         public ProcessExceptions(EmitMode emitMode) : base(emitMode) { }

@@ -13,7 +13,8 @@ namespace Ghi
         // this needs to be deterministic, so right now we're not using Dec for it because Dec's isn't
         [NonSerialized] internal int index;
 
-        // Positions within `components` (not ComponentDec.index) of the components implementing IOnRemove; computed by Environment.Init so removal can dispatch without reflection.
+        // Positions within `components` (not ComponentDec.index) of the components implementing each hook; computed by Environment.Init so add and remove can dispatch without reflection.
+        [NonSerialized] internal int[] onAddComponentSlots = Array.Empty<int>();
         [NonSerialized] internal int[] onRemoveComponentSlots = Array.Empty<int>();
 
         internal ConcurrentDictionary<Type, Func<Environment.Tranche, int, object>> componentGetters = new();

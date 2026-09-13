@@ -1,12 +1,75 @@
 using Dec;
 using NUnit.Framework;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Ghi.Test
 {
     public class Hooks : Base
     {
         public Hooks(EmitMode emitMode) : base(emitMode) { }
+
+        // Every hook in this file appends (tag, entity) here, so tests can assert on exact firing order and on which entity each hook saw.
+        public static List<(string tag, Entity entity)> Log = new();
+
+        public static List<string> Tags()
+        {
+            return Log.Select(l => l.tag).ToList();
+        }
+
+        [SetUp]
+        public void ClearLog()
+        {
+            Log.Clear();
+            HookedA.SelfMismatches = 0;
+        }
+
+        public class HookedA : IRecordable, IOnAdd, IOnRemove
+        {
+            public int value;
+
+            // what the most recent OnAdd observed about its entity
+            public static bool SeenValid;
+            public static int SeenValue;
+            public static bool SeenEqualsHeld;
+            public static Entity Held;
+
+            // times a hook was invoked on an instance that isn't the one its entity actually holds, which is what a stale dispatch index would produce
+            public static int SelfMismatches;
+
+            public void Record(Dec.Recorder recorder)
+            {
+                recorder.Record(ref value, "value");
+            }
+
+            private void CheckSelf(Entity entity)
+            {
+                if (!ReferenceEquals(this, entity.ComponentRO<HookedA>()))
+                {
+                    ++SelfMismatches;
+                }
+            }
+
+            public void OnAdd(Entity entity)
+            {
+                SeenValid = entity.IsValid();
+                SeenValue = entity.ComponentRO<HookedA>().value;
+                SeenEqualsHeld = entity == Held;
+                CheckSelf(entity);
+                Log.Add(("A.add", entity));
+            }
+
+            public void OnRemove(Entity entity)
+            {
+                CheckSelf(entity);
+                Log.Add(("A.remove", entity));
+            }
+        }
+
+        private const string DecA = @"
+            <ComponentDec decName=""A"">
+                <type>HookedA</type>
+            </ComponentDec>";
 
         private Environment Setup(string decs)
         {
@@ -17,6 +80,171 @@ namespace Ghi.Test
 
             Environment.Init();
             return new Environment();
+        }
+
+        private static EntityDec EntityA
+        {
+            get
+            {
+                return Dec.Database<EntityDec>.Get("EntityA");
+            }
+        }
+
+        private const string EntityAWithA = DecA + @"
+            <EntityDec decName=""EntityA"">
+                <components>
+                    <li>A</li>
+                </components>
+            </EntityDec>";
+
+        [Test]
+        public void OnAddImmediate()
+        {
+            var env = Setup(EntityAWithA);
+            using var envActive = new Environment.Scope(env);
+
+            HookedA.Held = default;
+            var ent = env.Add(EntityA, new object[] { new HookedA() { value = 7 } });
+
+            Assert.AreEqual(new[] { ("A.add", ent) }, Log);
+            Assert.IsTrue(HookedA.SeenValid);
+            Assert.AreEqual(7, HookedA.SeenValue);
+
+            env.Remove(ent);
+
+            Assert.AreEqual(new[] { ("A.add", ent), ("A.remove", ent) }, Log);
+        }
+
+        public static class DeferredAdder
+        {
+            public static int LogCountAfterAdd;
+
+            public static void Execute()
+            {
+                var env = Environment.Current.Value;
+                var ent = env.Add(EntityA);
+                HookedA.Held = ent;
+                LogCountAfterAdd = Log.Count;
+
+                // the hook has to see this, even though it was set after Add returned
+                ent.ComponentRW<HookedA>().value = 42;
+            }
+        }
+
+        [Test]
+        public void OnAddDeferred()
+        {
+            var env = Setup(EntityAWithA + @"
+                <SystemDec decName=""Adder"">
+                    <type>DeferredAdder</type>
+                </SystemDec>
+
+                <ProcessDec decName=""Process"">
+                    <order>
+                        <li>Adder</li>
+                    </order>
+                </ProcessDec>");
+            using var envActive = new Environment.Scope(env);
+
+            env.Process(Dec.Database<ProcessDec>.Get("Process"));
+
+            Assert.AreEqual(0, DeferredAdder.LogCountAfterAdd);
+            Assert.AreEqual(new[] { ("A.add", HookedA.Held) }, Log);
+            Assert.IsTrue(HookedA.SeenValid);
+            Assert.AreEqual(42, HookedA.SeenValue);
+            Assert.IsTrue(HookedA.SeenEqualsHeld);
+        }
+
+        // Removes Target from inside OnAdd.
+        public class RemoveOtherOnAdd : IRecordable, IOnAdd
+        {
+            public static Entity Target;
+
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAdd(Entity entity)
+            {
+                Log.Add(("Q.add", entity));
+                if (Target != default)
+                {
+                    Environment.Current.Value.Remove(Target);
+                }
+            }
+        }
+
+        [Test]
+        public void ReentrantRemoveFromAddHook()
+        {
+            var env = Setup(DecA + @"
+                <ComponentDec decName=""Q"">
+                    <type>RemoveOtherOnAdd</type>
+                </ComponentDec>
+
+                <EntityDec decName=""EntityA"">
+                    <components>
+                        <li>Q</li>
+                        <li>A</li>
+                    </components>
+                </EntityDec>");
+            using var envActive = new Environment.Scope(env);
+
+            RemoveOtherOnAdd.Target = default;
+            var first = env.Add(EntityA);
+            Log.Clear();
+
+            // the new entity is last in the tranche; removing the first one swaps it to the front between its two add hooks
+            RemoveOtherOnAdd.Target = first;
+            var second = env.Add(EntityA);
+
+            Assert.AreEqual(new[] { ("Q.add", second), ("A.remove", first), ("A.add", second) }, Log);
+            Assert.AreEqual(0, HookedA.SelfMismatches);
+            Assert.IsFalse(first.IsValid());
+            Assert.IsTrue(second.IsValid());
+            Assert.AreEqual(1, env.Count);
+        }
+
+        // Adds another entity of the same type from inside OnAdd, Remaining times.
+        public class AddOnAdd : IRecordable, IOnAdd
+        {
+            public static int Remaining;
+
+            public void Record(Dec.Recorder recorder) { }
+
+            public void OnAdd(Entity entity)
+            {
+                Log.Add(("C.add", entity));
+                if (Remaining > 0)
+                {
+                    --Remaining;
+                    Environment.Current.Value.Add(EntityA);
+                }
+            }
+        }
+
+        [Test]
+        public void ReentrantAddFromHook()
+        {
+            var env = Setup(@"
+                <ComponentDec decName=""C"">
+                    <type>AddOnAdd</type>
+                </ComponentDec>
+
+                <EntityDec decName=""EntityA"">
+                    <components>
+                        <li>C</li>
+                    </components>
+                </EntityDec>");
+            using var envActive = new Environment.Scope(env);
+
+            // enough to grow the tranche's component arrays out from under the outer add several times
+            AddOnAdd.Remaining = 40;
+            env.Add(EntityA);
+
+            Assert.AreEqual(41, env.Count);
+            Assert.IsTrue(env.List.All(e => e.IsValid()));
+            Assert.AreEqual(41, Log.Count);
+            Assert.AreEqual(41, Log.Select(l => l.entity).Distinct().Count());
+            CollectionAssert.AreEquivalent(env.List.ToArray(), Log.Select(l => l.entity).ToArray());
         }
 
         public struct StructHook : IOnRemove
@@ -49,6 +277,16 @@ namespace Ghi.Test
                     <type>OnRemoveComp</type>
                     <cow>true</cow>
                 </ComponentDec>", "COW");
+        }
+
+        [Test]
+        public void SingletonEntityHookIsError()
+        {
+            ExpectSetupError(@"
+                <ComponentDec decName=""A"">
+                    <type>HookedA</type>
+                    <singleton>true</singleton>
+                </ComponentDec>", "never fire on a singleton");
         }
 
         public class OnRemoveComp : Ghi.IOnRemove

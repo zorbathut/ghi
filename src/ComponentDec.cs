@@ -37,7 +37,7 @@ namespace Ghi
                 reporter("Singleton components cannot currently be structs or other value types");
             }
 
-            bool hooked = typeof(IOnRemove).IsAssignableFrom(type);
+            bool hooked = typeof(IOnAdd).IsAssignableFrom(type) || typeof(IOnRemove).IsAssignableFrom(type);
 
             if (hooked && type.IsValueType)
             {
@@ -47,6 +47,11 @@ namespace Ghi
             if (hooked && cow)
             {
                 reporter("Lifecycle hooks are not supported on COW components");
+            }
+
+            if (hooked && singleton)
+            {
+                reporter("IOnAdd and IOnRemove are per-entity hooks and never fire on a singleton");
             }
         }
     }

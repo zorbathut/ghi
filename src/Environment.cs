@@ -170,7 +170,7 @@ namespace Ghi
             SystemMutating,
         }
 
-        // Deliberately not unwound with try/finally, so don't add one. Every callout Process makes to host code - systems, IOnRemove handlers, the profiler scope - routes its exceptions to Dbg.Ex, so the only remaining way out of Process is a host error handler that throws instead of returning. A host that does that has chosen to abort mid-process, and the environment stays wedged in whatever state it was in, refusing to run further processes, until it's discarded.
+        // Deliberately not unwound with try/finally, so don't add one. Every callout Process makes to host code - systems, lifecycle hooks, the profiler scope - routes its exceptions to Dbg.Ex, so the only remaining way out of Process is a host error handler that throws instead of returning. A host that does that has chosen to abort mid-process, and the environment stays wedged in whatever state it was in, refusing to run further processes, until it's discarded.
         private Status status = Status.Idle;
 
         // True for the entire Process() call, including the windows between systems where the phase-end actions run.
@@ -269,9 +269,10 @@ namespace Ghi
             var allComponents = Dec.Database<ComponentDec>.List.OrderBy(cd => cd.DecName).ToArray();
             singletonDecs = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
 
-            // precompute hook dispatch so removal never has to ask reflection who's listening
+            // precompute hook dispatch so add and remove never have to ask reflection who's listening
             foreach (var dec in allEntities)
             {
+                dec.onAddComponentSlots = HookSlots(dec.components, typeof(IOnAdd));
                 dec.onRemoveComponentSlots = HookSlots(dec.components, typeof(IOnRemove));
             }
 
@@ -882,7 +883,9 @@ namespace Ghi
 
             if (!IsInSystem)
             {
-                return AddNow(dec, resultComponents, ++stableIdCounter);
+                var entity = AddNow(dec, resultComponents, ++stableIdCounter);
+                FireOnAdd(dec, entity);
+                return entity;
             }
 
             var entityDeferred = new EntityDeferred();
@@ -915,6 +918,9 @@ namespace Ghi
                     currentComponents[i] = tranche.components[i].GetValue(0);
                 }
                 entityDeferred.replacement = AddNow(dec, currentComponents, deferredStableId);
+
+                // fired only once the deferred handle resolves, so a hook comparing the entity it's given against the handle the system kept sees them as equal
+                FireOnAdd(dec, entityDeferred.replacement);
             });
             var resultEntity = new Entity(entityDeferred, deferredStableId);
             currentEntityAdded.Add(resultEntity);
@@ -1052,6 +1058,38 @@ namespace Ghi
         }
 
         // Hook dispatch. Component arrays are cast to object[] rather than read through Array.GetValue; ComponentDec refuses value-type hook components, so the cast holds and nothing boxes.
+        private void FireOnAdd(EntityDec dec, Entity entity)
+        {
+            var slots = dec.onAddComponentSlots;
+            if (slots.Length == 0)
+            {
+                return;
+            }
+
+            // hooks read their entity's components, which needs the environment active
+            using var scope = new Scope(this);
+
+            for (int i = 0; i < slots.Length; ++i)
+            {
+                // an earlier hook may have added or removed entities of the same type and thereby moved the one we're announcing
+                var (currentDec, tranche, index) = Get(entity);
+                if (currentDec == null)
+                {
+                    // an earlier hook removed the entity we're announcing; nobody else gets to hear it arrived
+                    return;
+                }
+
+                try
+                {
+                    ((IOnAdd)((object[])tranche.components[slots[i]])[index]).OnAdd(entity);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
+            }
+        }
+
         private void FireOnRemove(EntityDec dec, Entity entity)
         {
             var slots = dec.onRemoveComponentSlots;
@@ -1060,7 +1098,6 @@ namespace Ghi
                 return;
             }
 
-            // hooks read their entity's components, which needs the environment active
             using var scope = new Scope(this);
 
             var (_, tranche, index) = Get(entity);
@@ -1282,6 +1319,7 @@ namespace Ghi
                             if (oldIndex == -1)
                             {
                                 // this is a new component type, so we need to create a new array. duplicate our current component sizes I guess
+                                // deliberately no OnAdd for these: hooks never fire from Record, and migrating whatever they would have built is the host's problem
                                 newComponents[j] = Array.CreateInstance(newComponentTypes[j], oldComponents[0].Length);
 
                                 // and now fill it with the component
