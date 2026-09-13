@@ -349,6 +349,24 @@ namespace Ghi.Test
             Assert.AreEqual(1, removeRecorder.removed);
         }
 
+        private void ExpectSetupError(string decs, string message)
+        {
+            UpdateTestParameters(new Dec.Config.UnitTestParameters { });
+            var parser = new Dec.Parser();
+            parser.AddString(Dec.Parser.FileType.Xml, $"<Decs>{decs}</Decs>");
+            ExpectErrors(() => parser.Finish(), err => err.Contains(message));
+        }
+
+        [Test]
+        public void CowHookIsError()
+        {
+            ExpectSetupError(@"
+                <ComponentDec decName=""OnRemoveComp"">
+                    <type>OnRemoveComp</type>
+                    <cow>true</cow>
+                </ComponentDec>", "COW");
+        }
+
         [Dec.StaticReferences]
         public static class SpawnAndDeleteDecs
         {

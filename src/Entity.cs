@@ -369,11 +369,6 @@ namespace Ghi
                         Dbg.Ex(e);
                     }
                 }
-
-                if (typ.IsGenericType && typ.BaseType == typeof(Cow<>) && typeof(IOnRemove).IsAssignableFrom(typ.GetGenericArguments()[0]))
-                {
-                    Dbg.Err("COW'ed IOnRemove is not supported yet, sorry");
-                }
             }
         }
 

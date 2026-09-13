@@ -36,6 +36,13 @@ namespace Ghi
             {
                 reporter("Singleton components cannot currently be structs or other value types");
             }
+
+            bool hooked = typeof(IOnRemove).IsAssignableFrom(type);
+
+            if (hooked && cow)
+            {
+                reporter("Lifecycle hooks are not supported on COW components");
+            }
         }
     }
 }
