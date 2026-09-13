@@ -269,6 +269,12 @@ namespace Ghi
             var allComponents = Dec.Database<ComponentDec>.List.OrderBy(cd => cd.DecName).ToArray();
             singletonDecs = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
 
+            // precompute hook dispatch so removal never has to ask reflection who's listening
+            foreach (var dec in allEntities)
+            {
+                dec.onRemoveComponentSlots = HookSlots(dec.components, typeof(IOnRemove));
+            }
+
             // set up SystemDec processes
             foreach (var dec in Dec.Database<SystemDec>.List)
             {
@@ -408,6 +414,14 @@ namespace Ghi
                     dec.process = (tranches, singletons, action) => { };
                 }
             }
+        }
+
+        private static int[] HookSlots(IEnumerable<ComponentDec> decs, Type hook)
+        {
+            return decs
+                .Select((cd, i) => (cd, i))
+                .Where(x => hook.IsAssignableFrom(x.cd.GetComputedType()))
+                .Select(x => x.i).ToArray();
         }
 
         // Singleton-only systems: every parameter is satisfied by a singleton, so there's no per-entity iteration.
@@ -994,7 +1008,7 @@ namespace Ghi
             }
 
             // send appropriate messages
-            entity.OnRemove();
+            FireOnRemove(lookup.dec, tranches[lookup.dec.index].entries[lookup.index]);
 
             // we want to keep each tranche contiguous
 
@@ -1035,6 +1049,32 @@ namespace Ghi
             // important that we bump the generation to ensure we never repeat generations!
             entityLookup[id] = new EntityLookup() { dec = null, index = -1, gen = entityLookup[id].gen + 1 };
             entityFreeList.Add(id);
+        }
+
+        // Hook dispatch. Component arrays are cast to object[] rather than read through Array.GetValue; ComponentDec refuses value-type hook components, so the cast holds and nothing boxes.
+        private void FireOnRemove(EntityDec dec, Entity entity)
+        {
+            var slots = dec.onRemoveComponentSlots;
+            if (slots.Length == 0)
+            {
+                return;
+            }
+
+            // hooks read their entity's components, which needs the environment active
+            using var scope = new Scope(this);
+
+            var (_, tranche, index) = Get(entity);
+            for (int i = 0; i < slots.Length; ++i)
+            {
+                try
+                {
+                    ((IOnRemove)((object[])tranche.components[slots[i]])[index]).OnRemove(entity);
+                }
+                catch (Exception e)
+                {
+                    Dbg.Ex(e);
+                }
+            }
         }
 
         private (EntityLookup lookup, int id) LookupFromEntity(Entity entity)

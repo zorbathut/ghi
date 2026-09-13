@@ -334,44 +334,6 @@ namespace Ghi
             return ComponentsRW().OfType<T>();
         }
 
-        internal void OnRemove()
-        {
-            var env = Environment.Current.Value;
-            if (env == null)
-            {
-                Dbg.Err($"Internal error: Attempted to remove entity while env is unavailable");
-                return;
-            }
-
-            Resolve();
-
-            (var dec, var tranche, var index) = deferred?.Get() ?? env.Get(this);
-            if (dec == null)
-            {
-                Dbg.Err($"Internal error: Attempted to remove entity that can't be found");
-                return;
-            }
-
-            foreach (var c in dec.components)
-            {
-                var typ = c.GetComputedType();
-
-                if (typeof(IOnRemove).IsAssignableFrom(typ))
-                {
-                    var comp = dec.GetComponentFrom(typ, tranche, index);
-
-                    try
-                    {
-                        ((IOnRemove)comp).OnRemove(this);
-                    }
-                    catch (Exception e)
-                    {
-                        Dbg.Ex(e);
-                    }
-                }
-            }
-        }
-
         public override string ToString()
         {
             string suffix = Environment.EntityToString != null ? (":" + Environment.EntityToString(this)) : "";
