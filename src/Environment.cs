@@ -112,6 +112,9 @@ namespace Ghi
 
         private static Ghi.EntityDec[] indexToEntityDec;
 
+        // The singleton ComponentDecs in slot order; every `singletons` array is indexed by position in this.
+        private static ComponentDec[] singletonDecs;
+
         private object[] singletons;
         private Dictionary<Type, int> singletonLookup = new();
 
@@ -264,7 +267,7 @@ namespace Ghi
             // cache some data we can use
             var allEntities = Dec.Database<EntityDec>.List.OrderBy(dec => dec.index).ToArray();
             var allComponents = Dec.Database<ComponentDec>.List.OrderBy(cd => cd.DecName).ToArray();
-            var allSingletons = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
+            singletonDecs = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
 
             // set up SystemDec processes
             foreach (var dec in Dec.Database<SystemDec>.List)
@@ -299,7 +302,7 @@ namespace Ghi
                         var singletonSources = new int[parameters.Length];
                         for (int i = 0; i < parameters.Length; ++i)
                         {
-                            singletonSources[i] = allSingletons.FirstIndexOf(singleton => singleton == parameterDirectMatches[i][0].c);
+                            singletonSources[i] = singletonDecs.FirstIndexOf(singleton => singleton == parameterDirectMatches[i][0].c);
                         }
 
                         dec.process = useEmit
@@ -329,7 +332,7 @@ namespace Ghi
                 for (int trancheId = 0; trancheId < allEntities.Length; ++trancheId)
                 {
                     // see if we can find an unambiguous mapping, including all singletons and every one of our component types
-                    var availableComponents = allSingletons.Concat(allEntities[trancheId].components).ToArray();
+                    var availableComponents = singletonDecs.Concat(allEntities[trancheId].components).ToArray();
                     var parameterTrancheMatches = parametersBare
                         .Select(param => availableComponents
                             .Select((c, i) => (c.GetComputedType(), i))
@@ -352,7 +355,7 @@ namespace Ghi
                                 // this is Entity
                                 trancheRemaps.Add((-1, j));
                             }
-                            else if (parameterTrancheMatches[j][0] < allSingletons.Length)
+                            else if (parameterTrancheMatches[j][0] < singletonDecs.Length)
                             {
                                 // this is a singleton
                                 singletonRemaps.Add(( parameterTrancheMatches[j][0], j ));
@@ -360,7 +363,7 @@ namespace Ghi
                             else
                             {
                                 // this is a component
-                                trancheRemaps.Add(( parameterTrancheMatches[j][0] - allSingletons.Length, j ));
+                                trancheRemaps.Add(( parameterTrancheMatches[j][0] - singletonDecs.Length, j ));
                             }
                         }
 
@@ -762,11 +765,10 @@ namespace Ghi
             // a lot of this stuff really shouldn't happen if we're being dec-constructed; worry about that later
 
             // I'm not worried about singleton inheritance yet
-            var singletonTypes = Dec.Database<ComponentDec>.List.Where(cd => cd.singleton).OrderBy(cd => cd.DecName).ToArray();
-            singletonLookup = singletonTypes.Select((cd, i) => (type: cd.GetComputedType(), i)).ToDictionary(x => x.type, x => x.i);
+            singletonLookup = singletonDecs.Select((cd, i) => (type: cd.GetComputedType(), i)).ToDictionary(x => x.type, x => x.i);
 
-            singletons = new object[singletonTypes.Length];
-            foreach ((var dec, var i) in singletonTypes.Select((cd, i) => (cd, i)))
+            singletons = new object[singletonDecs.Length];
+            foreach ((var dec, var i) in singletonDecs.Select((cd, i) => (cd, i)))
             {
                 singletons[i] = Activator.CreateInstance(dec.GetComputedType());
             }
