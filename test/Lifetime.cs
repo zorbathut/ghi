@@ -349,12 +349,26 @@ namespace Ghi.Test
             Assert.AreEqual(1, removeRecorder.removed);
         }
 
+        public struct StructHook : IOnRemove
+        {
+            public void OnRemove(Entity entity) { }
+        }
+
         private void ExpectSetupError(string decs, string message)
         {
             UpdateTestParameters(new Dec.Config.UnitTestParameters { });
             var parser = new Dec.Parser();
             parser.AddString(Dec.Parser.FileType.Xml, $"<Decs>{decs}</Decs>");
             ExpectErrors(() => parser.Finish(), err => err.Contains(message));
+        }
+
+        [Test]
+        public void StructHookIsError()
+        {
+            ExpectSetupError(@"
+                <ComponentDec decName=""S"">
+                    <type>StructHook</type>
+                </ComponentDec>", "value-type");
         }
 
         [Test]

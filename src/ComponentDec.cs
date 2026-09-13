@@ -39,6 +39,11 @@ namespace Ghi
 
             bool hooked = typeof(IOnRemove).IsAssignableFrom(type);
 
+            if (hooked && type.IsValueType)
+            {
+                reporter("Lifecycle hooks are not supported on value-type components; the hook would receive a boxed copy and lose its writes");
+            }
+
             if (hooked && cow)
             {
                 reporter("Lifecycle hooks are not supported on COW components");
